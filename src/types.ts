@@ -110,3 +110,24 @@ export interface PaginatedResponse<T> {
   collection: T[];
   next_href?: string;
 }
+
+// OAuth Types
+export interface OAuthToken {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+  scope: string;
+  token_type: string;
+}
+
+export interface OAuthConfig {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+}
+
+export interface PKCEChallenge {
+  codeVerifier: string;
+  codeChallenge: string;
+  state: string;
+}

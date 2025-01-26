@@ -3,10 +3,15 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { SoundCloudAPI } from "./api.js";
+import { SoundCloudOAuth } from "./oauth.js";
 import { SoundCloudUser } from "./types.js";
 
 // Environment validation
-const requiredEnvVars = ["SOUNDCLOUD_ACCESS_TOKEN"] as const;
+const requiredEnvVars = [
+  "SOUNDCLOUD_CLIENT_ID",
+  "SOUNDCLOUD_CLIENT_SECRET",
+  "SOUNDCLOUD_REDIRECT_URI",
+] as const;
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
     console.error(`Missing required environment variable: ${envVar}`);
@@ -14,14 +19,191 @@ for (const envVar of requiredEnvVars) {
   }
 }
 
-// Initialize SoundCloud API client
-const api = new SoundCloudAPI(process.env.SOUNDCLOUD_ACCESS_TOKEN!);
+// Initialize OAuth manager
+const oauth = new SoundCloudOAuth({
+  clientId: process.env.SOUNDCLOUD_CLIENT_ID!,
+  clientSecret: process.env.SOUNDCLOUD_CLIENT_SECRET!,
+  redirectUri: process.env.SOUNDCLOUD_REDIRECT_URI!,
+});
+
+// Initialize SoundCloud API client with client credentials
+let api: SoundCloudAPI;
 
 // Create MCP server
 const server = new McpServer({
   name: "soundcloud",
   version: "1.0.0",
 });
+
+// OAuth Tools
+server.tool(
+  "start-oauth-flow",
+  "Start the OAuth authorization flow and get the authorization URL",
+  {},
+  async () => {
+    try {
+      const pkce = await oauth.generatePKCEChallenge();
+      const authUrl = oauth.getAuthorizationUrl(pkce);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              {
+                authUrl,
+                pkce,
+              },
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error starting OAuth flow: ${error}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "exchange-oauth-code",
+  "Exchange an authorization code for access and refresh tokens",
+  {
+    code: z.string(),
+    codeVerifier: z.string(),
+    state: z.string(),
+  },
+  async ({ code, codeVerifier, state }) => {
+    try {
+      const token = await oauth.exchangeCode(code, codeVerifier);
+      // Update API client with new token
+      api = new SoundCloudAPI(token.access_token);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(token, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error exchanging code: ${error}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "get-client-credentials",
+  "Get an access token using client credentials flow",
+  {},
+  async () => {
+    try {
+      const token = await oauth.getClientCredentialsToken();
+      // Update API client with new token
+      api = new SoundCloudAPI(token.access_token);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(token, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error getting client credentials token: ${error}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "refresh-token",
+  "Refresh an access token using a refresh token",
+  {
+    refreshToken: z.string(),
+  },
+  async ({ refreshToken }) => {
+    try {
+      const token = await oauth.refreshToken(refreshToken);
+      // Update API client with new token
+      api = new SoundCloudAPI(token.access_token);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(token, null, 2),
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error refreshing token: ${error}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
+
+server.tool(
+  "sign-out",
+  "Sign out and invalidate the current access token",
+  {},
+  async () => {
+    try {
+      if (!api) {
+        throw new Error("No active session");
+      }
+      await oauth.signOut(api.getAccessToken());
+      api = undefined!;
+      return {
+        content: [
+          {
+            type: "text",
+            text: "Successfully signed out",
+          },
+        ],
+      };
+    } catch (error) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Error signing out: ${error}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  }
+);
 
 // Prompts
 server.prompt(
@@ -1001,9 +1183,10 @@ server.tool(
 // Start the server
 async function main() {
   try {
-    // Verify credentials by making a test request
-    await api.getCurrentUser();
-    console.error("Successfully authenticated with SoundCloud");
+    // Start with client credentials
+    const token = await oauth.getClientCredentialsToken();
+    api = new SoundCloudAPI(token.access_token);
+    console.error("Successfully obtained client credentials token");
 
     const transport = new StdioServerTransport();
     await server.connect(transport);

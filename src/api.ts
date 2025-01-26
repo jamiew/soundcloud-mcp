@@ -18,6 +18,13 @@ export class SoundCloudAPI {
     this.accessToken = accessToken;
   }
 
+  /**
+   * Get the current access token
+   */
+  getAccessToken(): string {
+    return this.accessToken;
+  }
+
   // Track discovery methods
   async searchTracks(
     query: string,

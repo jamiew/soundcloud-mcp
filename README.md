@@ -1,230 +1,91 @@
 # SoundCloud MCP Server
 
-A Model Context Protocol (MCP) server that provides access to SoundCloud's API, allowing AI models to interact with SoundCloud data and features.
+An MCP server that provides tools and resources for interacting with the SoundCloud API.
 
-## Features
+## Setup
 
-- **Resources**
-  - User profiles
-  - Tracks
-  - Playlists
-  - Charts
-  - Current user's profile, playlists, and likes
+1. Install dependencies:
 
-- **Tools**
-  - Profile management (get profile)
-  - Track operations (search, get info, like/unlike)
-  - Playlist operations (get info)
-  - Social features (follow/unfollow users)
-  - Comments (add/get comments)
-  - Messaging (conversations and direct messages)
-  - Music discovery (charts, recommendations, related tracks)
+   ```bash
+   npm install
+   ```
 
-- **Prompts**
-  - Analyze music taste based on liked tracks
-  - Discover similar tracks
-  - Create playlists from recommendations
-  - Get personalized music discovery recommendations
+2. Create a `.env` file by copying the example:
 
-## Prerequisites
+   ```bash
+   cp .env.example .env
+   ```
 
-- Node.js 16 or higher
-- A SoundCloud account
-- A SoundCloud API access token
+3. Configure your SoundCloud OAuth credentials in `.env`:
 
-## Installation
+   ```bash
+   SOUNDCLOUD_CLIENT_ID=your_client_id_here
+   SOUNDCLOUD_CLIENT_SECRET=your_client_secret_here
+   SOUNDCLOUD_REDIRECT_URI=your_redirect_uri_here
+   ```
 
-1. Clone the repository:
+To get these credentials:
 
-```bash
-git clone https://github.com/yourusername/soundcloud-mcp.git
-cd soundcloud-mcp
-```
+1. Go to https://soundcloud.com/you/apps
+2. Create a new app or select an existing one
+3. Copy the Client ID and Client Secret
+4. Add your redirect URI in the app settings
 
-2. Install dependencies:
+## Running the Server
 
-```bash
-npm install
-```
+1. Build the server:
 
-3. Build the project:
+   ```bash
+   npm run build
+   ```
 
-```bash
-npm run build
-```
+2. Start the server:
 
-## Configuration
+   ```bash
+   npm start
+   ```
 
-Create a `.env` file in the project root with your SoundCloud API access token:
+The server will automatically start with client credentials flow for accessing public resources. For user-specific actions, you'll need to use the OAuth tools:
 
-```env
-SOUNDCLOUD_ACCESS_TOKEN=your_access_token_here
-```
+## OAuth Tools
 
-## Usage
+1. `start-oauth-flow`: Start the OAuth authorization flow and get the authorization URL
+2. `exchange-oauth-code`: Exchange an authorization code for access and refresh tokens
+3. `refresh-token`: Refresh an expired access token
+4. `get-client-credentials`: Get an access token using client credentials flow
+5. `sign-out`: Sign out and invalidate the current access token
 
-### Standalone Testing
+## Environment Variables
 
-You can run the server directly to test it:
+- `SOUNDCLOUD_CLIENT_ID`: Your SoundCloud app's client ID
+- `SOUNDCLOUD_CLIENT_SECRET`: Your SoundCloud app's client secret
+- `SOUNDCLOUD_REDIRECT_URI`: The URI where users will be redirected after authorization (e.g., http://localhost:3000/callback)
 
-```bash
-node build/index.js
-```
+## OAuth Flows
 
-### Integration with Claude Desktop
+### Client Credentials Flow
 
-1. Open your Claude Desktop configuration file:
-   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
-   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- Used for accessing public resources
+- Automatically used when server starts
+- No user authentication required
+- Limited to public data only
 
-2. Add the server configuration:
+### Authorization Code Flow (with PKCE)
 
-```json
-{
-  "mcpServers": {
-    "soundcloud": {
-      "command": "node",
-      "args": ["/absolute/path/to/soundcloud-mcp/build/index.js"],
-      "env": {
-        "SOUNDCLOUD_ACCESS_TOKEN": "your_access_token_here"
-      }
-    }
-  }
-}
-```
-
-3. Restart Claude Desktop
-
-### Using the MCP Inspector
-
-You can use the MCP Inspector to test the server's functionality:
-
-```bash
-npx @modelcontextprotocol/inspector node build/index.js
-```
-
-## Available Resources
-
-### User Profile
-
-- URI Template: `soundcloud://users/{userId}/profile`
-- Returns user information including name, bio, and stats
-
-### Track
-
-- URI Template: `soundcloud://tracks/{trackId}`
-- Returns track information including title, artist, and audio details
-
-### Playlist
-
-- URI Template: `soundcloud://playlists/{playlistId}`
-- Returns playlist information including tracks and metadata
-
-### Charts
-
-- URI Template: `soundcloud://charts/{kind}/{genre}`
-- Returns top or trending tracks for a specific genre
-
-### Static Resources
-
-- `soundcloud://me/profile` - Current user's profile
-- `soundcloud://me/playlists` - Current user's playlists
-- `soundcloud://me/likes` - Current user's liked tracks
-
-## Available Tools
-
-### Profile Management
-
-- `get-profile` - Get the authenticated user's profile
-
-### Track Operations
-
-- `get-track` - Get track information
-- `search-tracks` - Search for tracks with filters
-- `like-track` - Like a track
-- `unlike-track` - Unlike a track
-- `get-related-tracks` - Get tracks related to a specific track
-- `get-recommended-tracks` - Get personalized track recommendations
-
-### Playlist Operations
-
-- `get-playlist` - Get playlist information
-- `get-playlists` - Get user's playlists
-
-### Social Features
-
-- `follow-user` - Follow a user
-- `unfollow-user` - Unfollow a user
-
-### Comments
-
-- `add-comment` - Add a comment to a track
-- `get-comments` - Get comments for a track
-
-### Messaging
-
-- `get-conversations` - Get direct message conversations
-- `get-conversation` - Get conversation details
-- `get-messages` - Get messages from a conversation
-- `send-message` - Send a message in a conversation
-- `start-conversation` - Start a new conversation
-- `mark-conversation-read` - Mark a conversation as read
-
-## Available Prompts
-
-### analyze-music-taste
-
-Analyzes a user's music taste based on their liked tracks, providing insights about preferred genres, artists, and musical elements.
-
-### discover-similar-tracks
-
-Takes a track ID and finds similar tracks, explaining what they have in common and suggesting which ones the user might enjoy most.
-
-### create-playlist-from-recommendations
-
-Creates a playlist from personalized recommendations, organizing tracks in a cohesive way.
-
-### discover-new-music
-
-Gets personalized music discovery recommendations based on liked tracks, trending music, and user preferences.
+1. Use `start-oauth-flow` to get authorization URL and PKCE challenge
+2. User visits URL and authorizes the app
+3. Use `exchange-oauth-code` with the returned code and PKCE verifier
+4. Use `refresh-token` when the access token expires
 
 ## Development
 
-### Building
+Watch for changes and rebuild automatically:
 
 ```bash
-npm run build
+npm run dev
 ```
 
-### Type Checking
+In a separate terminal, run the server:
 
 ```bash
-npm run typecheck
-```
-
-### Testing with the Inspector
-
-```bash
-npm run test:inspector
-```
-
-## Error Handling
-
-The server implements comprehensive error handling:
-
-- Input validation for all parameters
-- Proper error messages for API failures
-- Rate limit handling
-- Authentication error handling
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+npm start
