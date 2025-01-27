@@ -10,7 +10,7 @@ import { SoundCloudUser } from "./types.js";
 const requiredEnvVars = [
   "SOUNDCLOUD_CLIENT_ID",
   "SOUNDCLOUD_CLIENT_SECRET",
-  // "SOUNDCLOUD_REDIRECT_URI",
+  "SOUNDCLOUD_REDIRECT_URI",
 ] as const;
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
