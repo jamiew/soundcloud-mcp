@@ -1191,6 +1191,16 @@ async function main() {
     const transport = new StdioServerTransport();
     await server.connect(transport);
     console.error("SoundCloud MCP Server running on stdio");
+
+    // Handle cleanup on exit
+    const cleanup = async () => {
+      console.error("Shutting down...");
+      await oauth.close();
+      process.exit(0);
+    };
+
+    process.on("SIGINT", cleanup);
+    process.on("SIGTERM", cleanup);
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);

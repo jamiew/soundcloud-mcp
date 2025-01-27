@@ -1,12 +1,72 @@
 import crypto from "crypto";
+import http from "http";
+import { URL } from "url";
 import { OAuthConfig, OAuthToken, PKCEChallenge } from "./types.js";
 
 export class SoundCloudOAuth {
   private config: OAuthConfig;
   private baseUrl = "https://secure.soundcloud.com";
 
+  private server?: http.Server;
+  private isClosing = false;
+
   constructor(config: OAuthConfig) {
     this.config = config;
+    this.startLocalServer();
+  }
+
+  /**
+   * Extracts port from redirect URI
+   */
+  private getRedirectPort(): number {
+    try {
+      const url = new URL(this.config.redirectUri);
+      return parseInt(url.port) || 80;
+    } catch (error) {
+      console.error("Invalid redirect URI:", error);
+      return 3000; // Default fallback
+    }
+  }
+
+  /**
+   * Starts local HTTP server for OAuth callback
+   */
+  private startLocalServer() {
+    const port = this.getRedirectPort();
+
+    this.server = http.createServer((req, res) => {
+      // Set CORS headers
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+
+      if (req.method === "OPTIONS") {
+        res.writeHead(200);
+        res.end();
+        return;
+      }
+
+      // Only handle GET requests to the callback path
+      const url = new URL(req.url || "", `http://localhost:${port}`);
+      const callbackPath = new URL(this.config.redirectUri).pathname;
+
+      if (req.method === "GET" && url.pathname === callbackPath) {
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end(
+          "<html><body><h1>Authorization successful!</h1><p>You can close this window now.</p></body></html>"
+        );
+      } else {
+        res.writeHead(404);
+        res.end();
+      }
+    });
+
+    this.server.listen(port, () => {
+      console.log(`OAuth callback server listening on port ${port}`);
+    });
+
+    this.server.on("error", (error) => {
+      console.error("OAuth server error:", error);
+    });
   }
 
   /**
@@ -184,5 +244,27 @@ export class SoundCloudOAuth {
       const error = await response.json();
       throw new Error(`Sign out failed: ${error.error || error.message}`);
     }
+  }
+
+  /**
+   * Closes the OAuth server and cleans up resources
+   */
+  async close(): Promise<void> {
+    if (!this.server || this.isClosing) return;
+
+    this.isClosing = true;
+    return new Promise((resolve, reject) => {
+      this.server!.close((err) => {
+        if (err) {
+          console.error("Error closing OAuth server:", err);
+          reject(err);
+        } else {
+          console.log("OAuth server closed successfully");
+          this.server = undefined;
+          this.isClosing = false;
+          resolve();
+        }
+      });
+    });
   }
 }
