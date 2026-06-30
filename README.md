@@ -108,6 +108,16 @@ The `npm` scripts load a local `.env` natively via Node's `--env-file-if-exists`
 Tool registration is decoupled from the stdio transport, so a future remote
 (Streamable HTTP) entrypoint can reuse `registerAll` without changes.
 
+## MCP conventions
+
+Built against the MCP 2025-06-18 spec: tools carry `title` + behavior
+annotations (`readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint`),
+read tools return `structuredContent` alongside text, and track/playlist tools
+emit `resource_link` blocks (permalink + artwork) so clients can render them.
+OAuth is handled locally per the spec's guidance that stdio servers take
+credentials from the environment rather than the transport-level OAuth flow
+(which is reserved for the future remote HTTP mode).
+
 ## Notes
 
 Unofficial integration, not affiliated with SoundCloud. Use within the
