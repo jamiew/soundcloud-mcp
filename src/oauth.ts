@@ -1,270 +1,242 @@
 import crypto from "crypto";
 import http from "http";
+import { spawn } from "child_process";
 import { URL } from "url";
-import { OAuthConfig, OAuthToken, PKCEChallenge } from "./types.js";
+import {
+  API_BASE,
+  AUTH_BASE,
+  CLIENT_ID,
+  CLIENT_SECRET,
+  REDIRECT_URI,
+} from "./config.js";
+import { OAuthToken, PKCEChallenge } from "./types.js";
+import { loadTokens, saveTokens, isExpired, StoredToken } from "./tokenStore.js";
+import { debug, logError } from "./log.js";
 
-export class SoundCloudOAuth {
-  private config: OAuthConfig;
-  private baseUrl = "https://secure.soundcloud.com";
+export class OAuthError extends Error {}
 
-  private server?: http.Server;
-  private isClosing = false;
+function base64url(buf: Buffer): string {
+  return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
 
-  constructor(config: OAuthConfig) {
-    this.config = config;
-    this.startLocalServer();
+export function generatePKCEChallenge(): PKCEChallenge {
+  const codeVerifier = base64url(crypto.randomBytes(32));
+  const codeChallenge = base64url(crypto.createHash("sha256").update(codeVerifier).digest());
+  const state = crypto.randomBytes(16).toString("hex");
+  return { codeVerifier, codeChallenge, state };
+}
+
+export function getAuthorizationUrl(pkce: PKCEChallenge): string {
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: REDIRECT_URI,
+    response_type: "code",
+    code_challenge: pkce.codeChallenge,
+    code_challenge_method: "S256",
+    state: pkce.state,
+  });
+  return `${AUTH_BASE}/authorize?${params.toString()}`;
+}
+
+async function tokenRequest(body: URLSearchParams, extraHeaders: Record<string, string> = {}): Promise<OAuthToken> {
+  const response = await fetch(`${AUTH_BASE}/oauth/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json; charset=utf-8",
+      ...extraHeaders,
+    },
+    body: body.toString(),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new OAuthError(`Token request failed (${response.status}): ${text.slice(0, 300)}`);
+  }
+  return response.json() as Promise<OAuthToken>;
+}
+
+export async function exchangeCode(code: string, codeVerifier: string): Promise<StoredToken> {
+  const token = await tokenRequest(
+    new URLSearchParams({
+      grant_type: "authorization_code",
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      redirect_uri: REDIRECT_URI,
+      code_verifier: codeVerifier,
+      code,
+    })
+  );
+  return saveTokens(token);
+}
+
+export async function getClientCredentialsToken(): Promise<OAuthToken> {
+  const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64");
+  return tokenRequest(new URLSearchParams({ grant_type: "client_credentials" }), {
+    Authorization: `Basic ${credentials}`,
+  });
+}
+
+export async function refreshToken(refresh_token: string): Promise<StoredToken> {
+  const token = await tokenRequest(
+    new URLSearchParams({
+      grant_type: "refresh_token",
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      refresh_token,
+    })
+  );
+  return saveTokens(token);
+}
+
+export async function signOut(accessToken: string): Promise<void> {
+  const response = await fetch(`${AUTH_BASE}/sign-out`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json; charset=utf-8" },
+    body: JSON.stringify({ access_token: accessToken }),
+  });
+  if (!response.ok) {
+    const text = await response.text();
+    throw new OAuthError(`Sign out failed (${response.status}): ${text.slice(0, 300)}`);
+  }
+}
+
+// Returns a valid USER access token, refreshing if it's near expiry.
+// Throws if the user hasn't logged in yet.
+export async function getValidAccessToken(): Promise<string> {
+  const tokens = loadTokens();
+  if (!tokens) {
+    throw new OAuthError("Not authenticated. Run `npm run auth` (or the connect-soundcloud tool) to log in.");
+  }
+  if (tokens.access_token && !isExpired(tokens)) {
+    return tokens.access_token;
+  }
+  if (!tokens.refresh_token) {
+    throw new OAuthError("Access token expired and no refresh token. Run `npm run auth` to log in again.");
+  }
+  debug("Access token expired; refreshing");
+  const refreshed = await refreshToken(tokens.refresh_token);
+  return refreshed.access_token;
+}
+
+export function hasUserToken(): boolean {
+  return loadTokens() !== null;
+}
+
+// Client-credentials tokens (public data) have no refresh token, so we just
+// cache one in memory and re-fetch when it nears expiry.
+let cachedClientToken: { access_token: string; obtained_at: number; expires_in: number } | null = null;
+
+export async function getCachedClientCredentialsToken(): Promise<string> {
+  const now = Date.now() / 1000;
+  if (cachedClientToken && now < cachedClientToken.obtained_at + cachedClientToken.expires_in - 60) {
+    return cachedClientToken.access_token;
+  }
+  const token = await getClientCredentialsToken();
+  cachedClientToken = {
+    access_token: token.access_token,
+    obtained_at: now,
+    expires_in: token.expires_in ?? 3600,
+  };
+  return cachedClientToken.access_token;
+}
+
+// Unified token provider for the API client: a logged-in user token when
+// available (library + writes), otherwise client-credentials for public calls.
+export async function getApiToken(): Promise<string> {
+  if (hasUserToken()) return getValidAccessToken();
+  return getCachedClientCredentialsToken();
+}
+
+function openBrowser(url: string): void {
+  const cmd = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
+  try {
+    spawn(cmd, [url], { stdio: "ignore", detached: true, shell: process.platform === "win32" }).unref();
+  } catch (error) {
+    debug("Could not open browser automatically:", error);
+  }
+}
+
+export interface LoginResult {
+  token: StoredToken;
+}
+
+// Runs the full Authorization Code + PKCE flow: spins up a one-shot local
+// server on the redirect URI's port, opens the browser, captures the callback
+// code automatically, exchanges it for tokens, and persists them.
+export function loginWithBrowser(options: { openBrowser?: boolean; timeoutMs?: number } = {}): Promise<LoginResult> {
+  const { openBrowser: shouldOpen = true, timeoutMs = 300_000 } = options;
+
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    return Promise.reject(new OAuthError("Set SOUNDCLOUD_CLIENT_ID and SOUNDCLOUD_CLIENT_SECRET in .env first."));
   }
 
-  /**
-   * Extracts port from redirect URI
-   */
-  private getRedirectPort(): number {
-    try {
-      const url = new URL(this.config.redirectUri);
-      return parseInt(url.port) || 80;
-    } catch (error) {
-      console.error("Invalid redirect URI:", error);
-      return 3000; // Default fallback
-    }
-  }
+  const pkce = generatePKCEChallenge();
+  const authUrl = getAuthorizationUrl(pkce);
+  const redirect = new URL(REDIRECT_URI);
+  const port = parseInt(redirect.port) || (redirect.protocol === "https:" ? 443 : 80);
 
-  /**
-   * Starts local HTTP server for OAuth callback
-   */
-  private startLocalServer() {
-    const port = this.getRedirectPort();
+  return new Promise<LoginResult>((resolve, reject) => {
+    let settled = false;
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      server.close();
+      fn();
+    };
 
-    this.server = http.createServer((req, res) => {
-      // Set CORS headers
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
-
-      if (req.method === "OPTIONS") {
-        res.writeHead(200);
-        res.end();
+    const server = http.createServer(async (req, res) => {
+      const reqUrl = new URL(req.url || "/", `http://localhost:${port}`);
+      if (reqUrl.pathname !== redirect.pathname) {
+        res.writeHead(404).end();
         return;
       }
 
-      // Only handle GET requests to the callback path
-      const url = new URL(req.url || "", `http://localhost:${port}`);
-      const callbackPath = new URL(this.config.redirectUri).pathname;
-
-      if (req.method === "GET" && url.pathname === callbackPath) {
-        res.writeHead(200, { "Content-Type": "text/html" });
+      const send = (status: number, message: string) => {
+        res.writeHead(status, { "Content-Type": "text/html; charset=utf-8" });
         res.end(
-          "<html><body><h1>Authorization successful!</h1><p>You can close this window now.</p></body></html>"
+          `<html><body style="font-family:system-ui;text-align:center;padding-top:80px"><h1>${message}</h1><p>You can close this tab and return to your terminal.</p></body></html>`
         );
+      };
+
+      const error = reqUrl.searchParams.get("error");
+      const code = reqUrl.searchParams.get("code");
+      const state = reqUrl.searchParams.get("state");
+
+      if (error) {
+        send(400, "SoundCloud login failed");
+        finish(() => reject(new OAuthError(reqUrl.searchParams.get("error_description") || error)));
+      } else if (state !== pkce.state) {
+        send(400, "Invalid state");
+        finish(() => reject(new OAuthError("OAuth state mismatch (possible CSRF).")));
+      } else if (!code) {
+        send(400, "Missing authorization code");
+        finish(() => reject(new OAuthError("No authorization code in callback.")));
       } else {
-        res.writeHead(404);
-        res.end();
+        try {
+          const token = await exchangeCode(code, pkce.codeVerifier);
+          send(200, "SoundCloud connected!");
+          finish(() => resolve({ token }));
+        } catch (err) {
+          send(500, "Token exchange failed");
+          finish(() => reject(err instanceof Error ? err : new OAuthError(String(err))));
+        }
       }
     });
 
-    this.server.listen(port, () => {
-      console.log(`OAuth callback server listening on port ${port}`);
-    });
+    server.on("error", (err) => finish(() => reject(err)));
 
-    this.server.on("error", (error) => {
-      console.error("OAuth server error:", error);
-    });
-  }
-
-  /**
-   * Generates PKCE challenge for OAuth flow
-   */
-  async generatePKCEChallenge(): Promise<PKCEChallenge> {
-    // Generate code verifier (random string between 43-128 chars)
-    const codeVerifier = crypto
-      .randomBytes(32)
-      .toString("base64")
-      .replace(/[^a-zA-Z0-9]/g, "")
-      .substring(0, 128);
-
-    // Generate code challenge (SHA256 hash of verifier, base64url encoded)
-    const codeChallenge = crypto
-      .createHash("sha256")
-      .update(codeVerifier)
-      .digest("base64")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=/g, "");
-
-    // Generate random state for CSRF protection
-    const state = crypto.randomBytes(16).toString("hex");
-
-    return {
-      codeVerifier,
-      codeChallenge,
-      state,
-    };
-  }
-
-  /**
-   * Constructs the authorization URL for the OAuth flow
-   */
-  getAuthorizationUrl(pkce: PKCEChallenge): string {
-    const params = new URLSearchParams({
-      client_id: this.config.clientId,
-      redirect_uri: this.config.redirectUri,
-      response_type: "code",
-      code_challenge: pkce.codeChallenge,
-      code_challenge_method: "S256",
-      state: pkce.state,
-    });
-
-    return `${this.baseUrl}/authorize?${params.toString()}`;
-  }
-
-  /**
-   * Exchanges an authorization code for access and refresh tokens
-   */
-  async exchangeCode(code: string, codeVerifier: string): Promise<OAuthToken> {
-    console.log("Exchanging authorization code for tokens...");
-    const startTime = Date.now();
-
-    const params = new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: this.config.clientId,
-      client_secret: this.config.clientSecret,
-      redirect_uri: this.config.redirectUri,
-      code_verifier: codeVerifier,
-      code: code,
-    });
-
-    const response = await fetch(`${this.baseUrl}/oauth/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json; charset=utf-8",
-      },
-      body: params.toString(),
-    });
-
-    const endTime = Date.now();
-    console.log(`Token exchange completed in ${endTime - startTime}ms`);
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Token exchange failed: ${error.error || error.message}`);
-    }
-
-    return response.json();
-  }
-
-  /**
-   * Gets an access token using client credentials flow
-   */
-  async getClientCredentialsToken(): Promise<OAuthToken> {
-    console.log("Getting client credentials token...");
-    const startTime = Date.now();
-
-    const credentials = Buffer.from(
-      `${this.config.clientId}:${this.config.clientSecret}`
-    ).toString("base64");
-
-    const response = await fetch(`${this.baseUrl}/oauth/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json; charset=utf-8",
-        Authorization: `Basic ${credentials}`,
-      },
-      body: "grant_type=client_credentials",
-    });
-
-    const endTime = Date.now();
-    console.log(
-      `Client credentials flow completed in ${endTime - startTime}ms`
+    const timer = setTimeout(
+      () => finish(() => reject(new OAuthError("Timed out waiting for SoundCloud callback."))),
+      timeoutMs
     );
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(
-        `Client credentials flow failed: ${error.error || error.message}`
-      );
-    }
-
-    return response.json();
-  }
-
-  /**
-   * Refreshes an access token using a refresh token
-   */
-  async refreshToken(refreshToken: string): Promise<OAuthToken> {
-    console.log("Refreshing access token...");
-    const startTime = Date.now();
-
-    const params = new URLSearchParams({
-      grant_type: "refresh_token",
-      client_id: this.config.clientId,
-      client_secret: this.config.clientSecret,
-      refresh_token: refreshToken,
+    server.listen(port, () => {
+      logError(`Waiting for SoundCloud OAuth callback on ${REDIRECT_URI}`);
+      logError(`Authorize URL:\n${authUrl}\n`);
+      if (shouldOpen) openBrowser(authUrl);
     });
-
-    const response = await fetch(`${this.baseUrl}/oauth/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json; charset=utf-8",
-      },
-      body: params.toString(),
-    });
-
-    const endTime = Date.now();
-    console.log(`Token refresh completed in ${endTime - startTime}ms`);
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Token refresh failed: ${error.error || error.message}`);
-    }
-
-    return response.json();
-  }
-
-  /**
-   * Signs out a user by invalidating their access token
-   */
-  async signOut(accessToken: string): Promise<void> {
-    console.log("Signing out user...");
-    const startTime = Date.now();
-
-    const response = await fetch(`${this.baseUrl}/sign-out`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json; charset=utf-8",
-      },
-      body: JSON.stringify({ access_token: accessToken }),
-    });
-
-    const endTime = Date.now();
-    console.log(`Sign out completed in ${endTime - startTime}ms`);
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(`Sign out failed: ${error.error || error.message}`);
-    }
-  }
-
-  /**
-   * Closes the OAuth server and cleans up resources
-   */
-  async close(): Promise<void> {
-    if (!this.server || this.isClosing) return;
-
-    this.isClosing = true;
-    return new Promise((resolve, reject) => {
-      this.server!.close((err) => {
-        if (err) {
-          console.error("Error closing OAuth server:", err);
-          reject(err);
-        } else {
-          console.log("OAuth server closed successfully");
-          this.server = undefined;
-          this.isClosing = false;
-          resolve();
-        }
-      });
-    });
-  }
+  });
 }
+
+export { API_BASE };

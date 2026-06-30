@@ -1,6 +1,11 @@
 # SoundCloud MCP Server
 
-An MCP server that provides tools and resources for interacting with the SoundCloud API.
+An MCP server that gives an assistant access to the SoundCloud API — search and
+discovery, your library, playlist management, social actions, and messaging.
+
+Runs locally over stdio. Public search works with app credentials alone;
+personal data and writes require a one-time browser login that persists and
+auto-refreshes its token.
 
 ## Setup
 
@@ -10,82 +15,93 @@ An MCP server that provides tools and resources for interacting with the SoundCl
    npm install
    ```
 
-2. Create a `.env` file by copying the example:
+2. Create a SoundCloud app at https://soundcloud.com/you/apps and note the
+   **Client ID** and **Client Secret**. Set the app's **Redirect URI** to match
+   your `.env` (default `http://localhost:8888/callback`).
+
+3. Copy the example env and fill it in:
 
    ```bash
    cp .env.example .env
    ```
 
-3. Configure your SoundCloud OAuth credentials in `.env`:
-
-   ```bash
-   SOUNDCLOUD_CLIENT_ID=your_client_id_here
-   SOUNDCLOUD_CLIENT_SECRET=your_client_secret_here
-   SOUNDCLOUD_REDIRECT_URI=your_redirect_uri_here
-   ```
-
-To get these credentials:
-
-1. Go to https://soundcloud.com/you/apps
-2. Create a new app or select an existing one
-3. Copy the Client ID and Client Secret
-4. Add your redirect URI in the app settings
-
-## Running the Server
-
-1. Build the server:
+4. Build:
 
    ```bash
    npm run build
    ```
 
-2. Start the server:
-
-   ```bash
-   npm start
-   ```
-
-The server will automatically start with client credentials flow for accessing public resources. For user-specific actions, you'll need to use the OAuth tools:
-
-## OAuth Tools
-
-1. `start-oauth-flow`: Start the OAuth authorization flow and get the authorization URL
-2. `exchange-oauth-code`: Exchange an authorization code for access and refresh tokens
-3. `refresh-token`: Refresh an expired access token
-4. `get-client-credentials`: Get an access token using client credentials flow
-5. `sign-out`: Sign out and invalidate the current access token
-
-## Environment Variables
-
-- `SOUNDCLOUD_CLIENT_ID`: Your SoundCloud app's client ID
-- `SOUNDCLOUD_CLIENT_SECRET`: Your SoundCloud app's client secret
-- `SOUNDCLOUD_REDIRECT_URI`: The URI where users will be redirected after authorization (e.g., http://localhost:3000/callback)
-
-## OAuth Flows
-
-### Client Credentials Flow
-
-- Used for accessing public resources
-- Automatically used when server starts
-- No user authentication required
-- Limited to public data only
-
-### Authorization Code Flow (with PKCE)
-
-1. Use `start-oauth-flow` to get authorization URL and PKCE challenge
-2. User visits URL and authorizes the app
-3. Use `exchange-oauth-code` with the returned code and PKCE verifier
-4. Use `refresh-token` when the access token expires
-
-## Development
-
-Watch for changes and rebuild automatically:
+## Authenticate (one time, for personal data)
 
 ```bash
-npm run dev
+npm run auth
 ```
 
-In a separate terminal, run the server:
+This opens your browser, captures the OAuth callback automatically, and saves
+tokens to `~/.soundcloud-mcp/tokens.json` (mode 600). The token auto-refreshes,
+so you normally only do this once. Use `npm run auth --no-browser` to print the
+URL instead of opening it.
+
+You can also log in from within a client by calling the **`connect_soundcloud`**
+tool, and check state with **`auth_status`**.
+
+## Run
 
 ```bash
 npm start
+```
+
+Or point your MCP client at `build/index.js` (with the `.env` loaded). Example
+client config:
+
+```json
+{
+  "mcpServers": {
+    "soundcloud": {
+      "command": "node",
+      "args": ["-r", "dotenv/config", "/absolute/path/to/soundcloud-mcp/build/index.js"]
+    }
+  }
+}
+```
+
+## Tools
+
+- **Auth:** `connect_soundcloud`, `auth_status`, `sign_out`
+- **Discovery:** `search_tracks`, `search_playlists`, `search_users`, `get_track`,
+  `get_user`, `get_playlist`, `get_related_tracks`, `get_comments`
+- **Library (login):** `get_profile`, `get_likes`, `get_playlists`, `get_recommended_tracks`
+- **Social (login):** `like_track`, `unlike_track`, `follow_user`, `unfollow_user`, `add_comment`
+- **Playlists (login):** `create_playlist`, `update_playlist`, `add_tracks_to_playlist`,
+  `remove_track_from_playlist`, `delete_playlist`
+- **Messaging (login):** `get_conversations`, `get_conversation`, `get_messages`,
+  `send_message`, `start_conversation`, `mark_conversation_read`
+
+## Environment variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `SOUNDCLOUD_CLIENT_ID` | yes | App client ID |
+| `SOUNDCLOUD_CLIENT_SECRET` | yes | App client secret |
+| `SOUNDCLOUD_REDIRECT_URI` | yes | Must match the app's redirect URI exactly (default `http://localhost:8888/callback`) |
+| `SOUNDCLOUD_TOKEN_FILE` | no | Token storage path (default `~/.soundcloud-mcp/tokens.json`) |
+| `MCP_DEBUG` | no | Set `true` for verbose request logging to stderr |
+
+## Architecture
+
+- `config.ts` — env + constants
+- `tokenStore.ts` — persists/refreshes user tokens on disk
+- `oauth.ts` — OAuth flows (PKCE auth-code, client-credentials, refresh) + browser login
+- `api.ts` — SoundCloud API client, fed an async token provider
+- `tools.ts` — `registerAll(server, api)`: all tools/prompts/resources, transport-agnostic
+- `index.ts` — stdio entrypoint
+- `auth.ts` — one-time login CLI
+
+Tool registration is decoupled from the stdio transport, so a future remote
+(Streamable HTTP) entrypoint can reuse `registerAll` without changes.
+
+## Notes
+
+Unofficial integration, not affiliated with SoundCloud. Use within the
+[SoundCloud API Terms of Use](https://developers.soundcloud.com/docs/api/terms-of-use).
+The legacy `/charts` endpoint is no longer served by the public API and has been removed.

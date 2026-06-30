@@ -5,8 +5,9 @@
   "type": "module",
   "main": "build/index.js",
   "scripts": {
-    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "build": "tsc && node -e \"['index','auth'].forEach(f=>require('fs').chmodSync('build/'+f+'.js','755'))\"",
     "start": "node -r dotenv/config build/index.js",
+    "auth": "npm run build && node -r dotenv/config build/auth.js",
     "dev": "tsc -w",
     "inspector": "npm run build && npx @modelcontextprotocol/inspector node -r dotenv/config build/index.js"
   },
