@@ -6,10 +6,10 @@
   "main": "build/index.js",
   "scripts": {
     "build": "tsc && node -e \"['index','auth'].forEach(f=>require('fs').chmodSync('build/'+f+'.js','755'))\"",
-    "start": "node -r dotenv/config build/index.js",
-    "auth": "npm run build && node -r dotenv/config build/auth.js",
+    "start": "node --env-file-if-exists=.env build/index.js",
+    "auth": "npm run build && node --env-file-if-exists=.env build/auth.js",
     "dev": "tsc -w",
-    "inspector": "npm run build && npx @modelcontextprotocol/inspector node -r dotenv/config build/index.js"
+    "inspector": "npm run build && npx @modelcontextprotocol/inspector node --env-file-if-exists=.env build/index.js"
   },
   "keywords": [
     "mcp",
@@ -18,13 +18,15 @@
   ],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.2.0",
-    "dotenv": "^16.3.1",
-    "zod": "^3.22.4"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
-    "typescript": "^5.3.3"
+    "@types/node": "^22.10.0",
+    "typescript": "^6.0.3"
   }
 }

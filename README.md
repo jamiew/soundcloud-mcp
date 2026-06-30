@@ -51,19 +51,27 @@ tool, and check state with **`auth_status`**.
 npm start
 ```
 
-Or point your MCP client at `build/index.js` (with the `.env` loaded). Example
-client config:
+Or point your MCP client at `build/index.js` and pass credentials via the
+client's `env` block (no `.env` needed):
 
 ```json
 {
   "mcpServers": {
     "soundcloud": {
       "command": "node",
-      "args": ["-r", "dotenv/config", "/absolute/path/to/soundcloud-mcp/build/index.js"]
+      "args": ["/absolute/path/to/soundcloud-mcp/build/index.js"],
+      "env": {
+        "SOUNDCLOUD_CLIENT_ID": "...",
+        "SOUNDCLOUD_CLIENT_SECRET": "...",
+        "SOUNDCLOUD_REDIRECT_URI": "http://localhost:8888/callback"
+      }
     }
   }
 }
 ```
+
+The `npm` scripts load a local `.env` natively via Node's `--env-file-if-exists`
+(no `dotenv` dependency). Requires Node 22+.
 
 ## Tools
 
