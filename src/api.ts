@@ -1,16 +1,16 @@
-import type {
-  SoundCloudUser,
-  SoundCloudTrack,
-  SoundCloudPlaylist,
-  SoundCloudLike,
-  SoundCloudError,
-  PaginatedResponse,
-  Message,
-  Conversation,
-  Comment,
-} from "./types.js";
 import { API_BASE } from "./config.js";
 import { debug } from "./log.js";
+import type {
+  Comment,
+  Conversation,
+  Message,
+  PaginatedResponse,
+  SoundCloudError,
+  SoundCloudLike,
+  SoundCloudPlaylist,
+  SoundCloudTrack,
+  SoundCloudUser,
+} from "./types.js";
 
 export type TokenProvider = () => Promise<string>;
 

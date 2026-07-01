@@ -1,10 +1,9 @@
 #!/usr/bin/env node
+import { SoundCloudAPI } from "./api.js";
+import { CLIENT_ID, CLIENT_SECRET, TOKEN_FILE } from "./config.js";
 // One-time CLI login: opens a browser, captures the SoundCloud OAuth callback,
 // and stores tokens so the MCP server can use them across sessions.
-import { loginWithBrowser, OAuthError } from "./oauth.js";
-import { SoundCloudAPI } from "./api.js";
-import { getValidAccessToken } from "./oauth.js";
-import { TOKEN_FILE, CLIENT_ID, CLIENT_SECRET } from "./config.js";
+import { getValidAccessToken, loginWithBrowser, OAuthError } from "./oauth.js";
 
 async function main() {
   if (!CLIENT_ID || !CLIENT_SECRET) {

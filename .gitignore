@@ -4,6 +4,10 @@ build/
 node_modules/
 prompts/
 *.log
+coverage/
+
+# scratch token file written by tokenStore tests
+.tmp-test-tokens.json
 
 # reference repos cloned for comparison
 tmp/

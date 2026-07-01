@@ -2,13 +2,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SoundCloudAPI } from "./api.js";
-import { getApiToken } from "./oauth.js";
-import { registerAll } from "./tools.js";
 import { CLIENT_ID, CLIENT_SECRET } from "./config.js";
 import { logError } from "./log.js";
+import { getApiToken } from "./oauth.js";
+import { registerAll } from "./tools.js";
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
-  logError("Missing SOUNDCLOUD_CLIENT_ID or SOUNDCLOUD_CLIENT_SECRET. Copy .env.example to .env and fill them in.");
+  logError(
+    "Missing SOUNDCLOUD_CLIENT_ID or SOUNDCLOUD_CLIENT_SECRET. Copy .env.example to .env and fill them in."
+  );
   process.exit(1);
 }
 

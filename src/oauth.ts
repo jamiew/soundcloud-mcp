@@ -1,17 +1,11 @@
-import crypto from "crypto";
-import http from "http";
-import { spawn } from "child_process";
-import { URL } from "url";
-import {
-  API_BASE,
-  AUTH_BASE,
-  CLIENT_ID,
-  CLIENT_SECRET,
-  REDIRECT_URI,
-} from "./config.js";
-import { OAuthToken, PKCEChallenge } from "./types.js";
-import { loadTokens, saveTokens, isExpired, StoredToken } from "./tokenStore.js";
+import { spawn } from "node:child_process";
+import crypto from "node:crypto";
+import http from "node:http";
+import { URL } from "node:url";
+import { API_BASE, AUTH_BASE, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI } from "./config.js";
 import { debug, logError } from "./log.js";
+import { isExpired, loadTokens, type StoredToken, saveTokens } from "./tokenStore.js";
+import type { OAuthToken, PKCEChallenge } from "./types.js";
 
 export class OAuthError extends Error {}
 
@@ -38,7 +32,10 @@ export function getAuthorizationUrl(pkce: PKCEChallenge): string {
   return `${AUTH_BASE}/authorize?${params.toString()}`;
 }
 
-async function tokenRequest(body: URLSearchParams, extraHeaders: Record<string, string> = {}): Promise<OAuthToken> {
+async function tokenRequest(
+  body: URLSearchParams,
+  extraHeaders: Record<string, string> = {}
+): Promise<OAuthToken> {
   const response = await fetch(`${AUTH_BASE}/oauth/token`, {
     method: "POST",
     headers: {
@@ -163,17 +160,21 @@ export interface LoginResult {
 // Runs the full Authorization Code + PKCE flow: spins up a one-shot local
 // server on the redirect URI's port, opens the browser, captures the callback
 // code automatically, exchanges it for tokens, and persists them.
-export function loginWithBrowser(options: { openBrowser?: boolean; timeoutMs?: number } = {}): Promise<LoginResult> {
+export function loginWithBrowser(
+  options: { openBrowser?: boolean; timeoutMs?: number } = {}
+): Promise<LoginResult> {
   const { openBrowser: shouldOpen = true, timeoutMs = 300_000 } = options;
 
   if (!CLIENT_ID || !CLIENT_SECRET) {
-    return Promise.reject(new OAuthError("Set SOUNDCLOUD_CLIENT_ID and SOUNDCLOUD_CLIENT_SECRET in .env first."));
+    return Promise.reject(
+      new OAuthError("Set SOUNDCLOUD_CLIENT_ID and SOUNDCLOUD_CLIENT_SECRET in .env first.")
+    );
   }
 
   const pkce = generatePKCEChallenge();
   const authUrl = getAuthorizationUrl(pkce);
   const redirect = new URL(REDIRECT_URI);
-  const port = parseInt(redirect.port) || (redirect.protocol === "https:" ? 443 : 80);
+  const port = parseInt(redirect.port, 10) || (redirect.protocol === "https:" ? 443 : 80);
 
   return new Promise<LoginResult>((resolve, reject) => {
     let settled = false;
