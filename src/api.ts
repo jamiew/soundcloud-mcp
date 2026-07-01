@@ -10,9 +10,17 @@ import type {
   SoundCloudPlaylist,
   SoundCloudTrack,
   SoundCloudUser,
+  TrackStreams,
 } from "./types.js";
 
 export type TokenProvider = () => Promise<string>;
+
+// SoundCloud mangles track IDs above int32 when they arrive as JSON numbers in a
+// playlist body (returns 422), so send those as strings and keep the rest numeric.
+const INT32_MAX = 2_147_483_647;
+function playlistTrackRef(id: number): { id: number | string } {
+  return { id: id > INT32_MAX ? String(id) : id };
+}
 
 export class SoundCloudAPI {
   private getToken: TokenProvider;
@@ -109,6 +117,10 @@ export class SoundCloudAPI {
     return this.request<SoundCloudTrack[]>(`/tracks/${trackId}/related?limit=${limit}`);
   }
 
+  async getTrackStreams(trackId: number): Promise<TrackStreams> {
+    return this.request<TrackStreams>(`/tracks/${trackId}/streams`);
+  }
+
   async getTrackComments(trackId: number, limit = 50): Promise<PaginatedResponse<Comment>> {
     return this.request<PaginatedResponse<Comment>>(
       `/tracks/${trackId}/comments?limit=${limit}&linked_partitioning=true`
@@ -179,7 +191,7 @@ export class SoundCloudAPI {
       sharing: options.sharing ?? "private",
     };
     if (options.description) playlist.description = options.description;
-    if (options.trackIds) playlist.tracks = options.trackIds.map((id) => ({ id }));
+    if (options.trackIds) playlist.tracks = options.trackIds.map(playlistTrackRef);
     return this.request<SoundCloudPlaylist>("/playlists", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -195,7 +207,7 @@ export class SoundCloudAPI {
     if (updates.title !== undefined) playlist.title = updates.title;
     if (updates.description !== undefined) playlist.description = updates.description;
     if (updates.sharing !== undefined) playlist.sharing = updates.sharing;
-    if (updates.trackIds !== undefined) playlist.tracks = updates.trackIds.map((id) => ({ id }));
+    if (updates.trackIds !== undefined) playlist.tracks = updates.trackIds.map(playlistTrackRef);
     return this.request<SoundCloudPlaylist>(`/playlists/${playlistId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },

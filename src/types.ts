@@ -69,6 +69,14 @@ export interface SoundCloudLike {
   track: SoundCloudTrack;
 }
 
+// The /tracks/{id}/streams endpoint returns time-limited playback URLs.
+export interface TrackStreams {
+  http_mp3_128_url?: string;
+  hls_mp3_128_url?: string;
+  hls_opus_64_url?: string;
+  preview_mp3_128_url?: string;
+}
+
 export interface SoundCloudError {
   code: number;
   message: string;

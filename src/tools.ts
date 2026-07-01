@@ -2,7 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { SoundCloudAPI } from "./api.js";
 import { getValidAccessToken, hasUserToken, loginWithBrowser, signOut } from "./oauth.js";
-import type { SoundCloudPlaylist, SoundCloudTrack } from "./types.js";
+import type { SoundCloudPlaylist, SoundCloudTrack, TrackStreams } from "./types.js";
 
 type ContentBlock =
   | { type: "text"; text: string }
@@ -86,6 +86,14 @@ function playlistLinks(playlist?: SoundCloudPlaylist): ContentBlock[] {
       mimeType: "text/html",
     },
   ];
+}
+
+// Surface the playable audio itself: prefer the progressive MP3, fall back to
+// the preview or HLS variant. These URLs are time-limited by SoundCloud.
+function streamLinks(streams?: TrackStreams): ContentBlock[] {
+  const uri = streams?.http_mp3_128_url ?? streams?.preview_mp3_128_url ?? streams?.hls_mp3_128_url;
+  if (!uri) return [];
+  return [{ type: "resource_link", uri, name: "audio stream", mimeType: "audio/mpeg" }];
 }
 
 // Registers every tool, prompt, and resource on the given server. Kept separate
@@ -226,6 +234,17 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       annotations: { title: "Get related tracks", ...READ },
     },
     async ({ trackId, limit }) => run(() => api.getRelatedTracks(trackId, limit))
+  );
+
+  server.registerTool(
+    "get_stream_url",
+    {
+      title: "Get stream URL",
+      description: "Get playable audio stream URLs for a track (time-limited)",
+      inputSchema: { trackId: z.number().min(1) },
+      annotations: { title: "Get stream URL", ...READ },
+    },
+    async ({ trackId }) => run(() => api.getTrackStreams(trackId), streamLinks)
   );
 
   server.registerTool(

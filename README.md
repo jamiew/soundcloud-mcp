@@ -77,7 +77,7 @@ The `npm` scripts load a local `.env` natively via Node's `--env-file-if-exists`
 
 - **Auth:** `connect_soundcloud`, `auth_status`, `sign_out`
 - **Discovery:** `search_tracks`, `search_playlists`, `search_users`, `get_track`,
-  `get_user`, `get_playlist`, `get_related_tracks`, `get_comments`
+  `get_user`, `get_playlist`, `get_related_tracks`, `get_stream_url`, `get_comments`
 - **Library (login):** `get_profile`, `get_likes`, `get_playlists`, `get_recommended_tracks`
 - **Social (login):** `like_track`, `unlike_track`, `follow_user`, `unfollow_user`, `add_comment`
 - **Playlists (login):** `create_playlist`, `update_playlist`, `add_tracks_to_playlist`,
@@ -113,7 +113,7 @@ Tool registration is decoupled from the stdio transport, so a future remote
 Built against the MCP 2025-06-18 spec: tools carry `title` + behavior
 annotations (`readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint`),
 read tools return `structuredContent` alongside text, and track/playlist tools
-emit `resource_link` blocks (permalink + artwork) so clients can render them.
+emit `resource_link` blocks (permalink, artwork, audio stream) so clients can render them.
 OAuth is handled locally per the spec's guidance that stdio servers take
 credentials from the environment rather than the transport-level OAuth flow
 (which is reserved for the future remote HTTP mode).

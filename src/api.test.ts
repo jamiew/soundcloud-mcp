@@ -111,6 +111,30 @@ describe("SoundCloudAPI.searchTracks", () => {
   });
 });
 
+describe("SoundCloudAPI.getTrackStreams", () => {
+  it("requests the track streams endpoint", async () => {
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      res({ ok: true, status: 200, text: JSON.stringify({ http_mp3_128_url: "https://cf/x.mp3" }) })
+    );
+    const streams = await api.getTrackStreams(42);
+    const url = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(url).toBe("https://api.soundcloud.com/tracks/42/streams");
+    expect(streams.http_mp3_128_url).toBe("https://cf/x.mp3");
+  });
+});
+
+describe("SoundCloudAPI playlist int32 track ids", () => {
+  it("sends track ids above int32 as strings and smaller ids as numbers", async () => {
+    const bigId = 2_147_483_648; // 2^31, one past int32 max
+    (fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      res({ ok: true, status: 200, text: JSON.stringify({ id: 9 }) })
+    );
+    await api.createPlaylist("mix", { trackIds: [5, bigId] });
+    const options = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(JSON.parse(options.body as string).playlist.tracks).toEqual([{ id: 5 }, { id: String(bigId) }]);
+  });
+});
+
 describe("SoundCloudAPI playlist track re-send", () => {
   it("addTracksToPlaylist re-sends existing plus new ids", async () => {
     (fetch as ReturnType<typeof vi.fn>)
