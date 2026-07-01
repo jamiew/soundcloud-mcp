@@ -39,7 +39,7 @@ npm run auth
 
 This opens your browser, captures the OAuth callback automatically, and saves
 tokens to `~/.soundcloud-mcp/tokens.json` (mode 600). The token auto-refreshes,
-so you normally only do this once. Use `npm run auth --no-browser` to print the
+so you normally only do this once. Use `npm run auth -- --no-browser` to print the
 URL instead of opening it.
 
 You can also log in from within a client by calling the **`connect_soundcloud`**
@@ -47,31 +47,53 @@ tool, and check state with **`auth_status`**.
 
 ## Run
 
+Standalone (uses the local `.env`):
+
 ```bash
 npm start
 ```
 
-Or point your MCP client at `build/index.js` and pass credentials via the
-client's `env` block (no `.env` needed):
+### Claude Desktop
 
-```json
-{
-  "mcpServers": {
-    "soundcloud": {
-      "command": "node",
-      "args": ["/absolute/path/to/soundcloud-mcp/build/index.js"],
-      "env": {
-        "SOUNDCLOUD_CLIENT_ID": "...",
-        "SOUNDCLOUD_CLIENT_SECRET": "...",
-        "SOUNDCLOUD_REDIRECT_URI": "http://localhost:8888/callback"
-      }
-    }
-  }
-}
-```
+1. `npm run build` first — Claude Desktop runs the compiled `build/index.js`.
+2. Open the config file (or **Settings → Developer → Edit Config**):
+   - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+   - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+3. Add the server, using **absolute paths** and your app credentials in `env`:
 
-The `npm` scripts load a local `.env` natively via Node's `--env-file-if-exists`
-(no `dotenv` dependency). Requires Node 22+.
+   ```json
+   {
+     "mcpServers": {
+       "soundcloud": {
+         "command": "node",
+         "args": ["/absolute/path/to/soundcloud-mcp/build/index.js"],
+         "env": {
+           "SOUNDCLOUD_CLIENT_ID": "your-client-id",
+           "SOUNDCLOUD_CLIENT_SECRET": "your-client-secret"
+         }
+       }
+     }
+   }
+   ```
+
+4. Fully **quit and reopen** Claude Desktop (closing the window isn't enough).
+
+Gotchas:
+
+- Paths must be absolute — `~` and shell variables are not expanded.
+- Claude Desktop launches from the GUI, so it may not find a version-managed
+  `node` (nvm/nodenv/asdf). If the server won't start, set `"command"` to the
+  absolute node path from `which node` (e.g. `nodenv which node`), such as
+  `/Users/you/.nodenv/versions/22.22.0/bin/node`.
+- Run `npm run auth` once in a terminal so personal-data tools and writes work;
+  public search works without it. Tokens persist to `~/.soundcloud-mcp/tokens.json`
+  independent of Claude Desktop, so you don't re-auth per client.
+- Only set `SOUNDCLOUD_REDIRECT_URI` if you changed it from the default; it must
+  match your SoundCloud app exactly.
+
+Other MCP clients work the same way: run `node build/index.js` with the two
+credential env vars set. The `npm` scripts additionally load a local `.env`
+natively via Node's `--env-file-if-exists` (no `dotenv` dependency; needs Node 22+).
 
 ## Tools
 
