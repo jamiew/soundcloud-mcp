@@ -57,11 +57,14 @@ export interface SoundCloudComment {
 	user: SoundCloudUser;
 }
 
-/** A like/repost wrapper: the entity plus when it was added. */
-export interface SoundCloudLike {
+// /me/feed/tracks returns activity wrappers, not bare tracks: each entry has a
+// `type` like "track" or "track:repost" and carries the track inside.
+export interface FeedItem {
+	type: string;
 	created_at: string;
 	track?: SoundCloudTrack;
 	playlist?: SoundCloudPlaylist;
+	user?: SoundCloudUser;
 }
 
 /** Time-limited playback URLs from /tracks/{urn}/streams. */

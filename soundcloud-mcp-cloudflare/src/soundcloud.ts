@@ -2,9 +2,9 @@
 // refresh-and-retry, URN normalization, and cursor pagination.
 
 import type {
+	FeedItem,
 	Paginated,
 	SoundCloudComment,
-	SoundCloudLike,
 	SoundCloudPlaylist,
 	SoundCloudTrack,
 	SoundCloudUser,
@@ -224,7 +224,7 @@ export class SoundCloudClient {
 	}
 	/** New tracks from people you follow — the closest thing to a home feed. */
 	getFeed(limit: number) {
-		return this.page<SoundCloudLike>("/me/feed/tracks", { limit });
+		return this.page<FeedItem>("/me/feed/tracks", { limit });
 	}
 	getRecentlyPlayed(limit: number) {
 		return this.page<SoundCloudTrack>("/me/recently-played/tracks", { limit });

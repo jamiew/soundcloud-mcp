@@ -2,8 +2,7 @@ import { API_BASE } from "./config.js";
 import { debug } from "./log.js";
 import type {
   Comment,
-  Conversation,
-  Message,
+  FeedItem,
   PaginatedResponse,
   SoundCloudError,
   SoundCloudLike,
@@ -15,11 +14,19 @@ import type {
 
 export type TokenProvider = () => Promise<string>;
 
-// SoundCloud mangles track IDs above int32 when they arrive as JSON numbers in a
-// playlist body (returns 422), so send those as strings and keep the rest numeric.
-const INT32_MAX = 2_147_483_647;
-function playlistTrackRef(id: number): { id: number | string } {
-  return { id: id > INT32_MAX ? String(id) : id };
+/** Ids accepted from tools: a numeric id or a `soundcloud:…` URN. */
+export type Id = string | number;
+
+// SoundCloud's agent guidance deprecates numeric ids in favour of URNs, so
+// every id is normalized before it reaches a path. This also sidesteps the old
+// int32 bug: ids above 2^31 were mangled when sent as JSON numbers.
+export function toUrn(kind: "tracks" | "users" | "playlists", id: Id): string {
+  const raw = String(id).trim();
+  return raw.startsWith("soundcloud:") ? raw : `soundcloud:${kind}:${raw}`;
+}
+
+function playlistTrackRef(id: Id): { urn: string } {
+  return { urn: toUrn("tracks", id) };
 }
 
 export class SoundCloudAPI {
@@ -33,7 +40,7 @@ export class SoundCloudAPI {
   }
 
   public async request<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const url = `${this.baseUrl}${path}`;
+    const url = path.startsWith("http") ? path : `${this.baseUrl}${path}`;
     const token = await this.getToken();
     const headers = {
       accept: "application/json; charset=utf-8",
@@ -66,6 +73,13 @@ export class SoundCloudAPI {
     return (text ? JSON.parse(text) : undefined) as T;
   }
 
+  // Collection endpoints need linked_partitioning to return a next_href cursor.
+  private page<T>(path: string, params: Record<string, string | number> = {}) {
+    const query = new URLSearchParams({ linked_partitioning: "true" });
+    for (const [key, value] of Object.entries(params)) query.append(key, String(value));
+    return this.request<PaginatedResponse<T>>(`${path}?${query.toString()}`);
+  }
+
   // --- Discovery ---
   async searchTracks(
     query: string,
@@ -96,56 +110,77 @@ export class SoundCloudAPI {
   }
 
   async searchPlaylists(query: string, limit = 50): Promise<PaginatedResponse<SoundCloudPlaylist>> {
-    const params = new URLSearchParams({ q: query, limit: limit.toString(), linked_partitioning: "true" });
-    return this.request<PaginatedResponse<SoundCloudPlaylist>>(`/playlists?${params.toString()}`);
+    return this.page<SoundCloudPlaylist>("/playlists", { q: query, limit });
   }
 
   async searchUsers(query: string, limit = 50): Promise<PaginatedResponse<SoundCloudUser>> {
-    const params = new URLSearchParams({ q: query, limit: limit.toString(), linked_partitioning: "true" });
-    return this.request<PaginatedResponse<SoundCloudUser>>(`/users?${params.toString()}`);
+    return this.page<SoundCloudUser>("/users", { q: query, limit });
   }
 
-  async getTrack(trackId: number): Promise<SoundCloudTrack> {
-    return this.request<SoundCloudTrack>(`/tracks/${trackId}`);
+  // Turns a soundcloud.com permalink into the underlying API resource.
+  async resolve(url: string): Promise<SoundCloudTrack | SoundCloudUser | SoundCloudPlaylist> {
+    return this.request(`/resolve?url=${encodeURIComponent(url)}`);
   }
 
-  async getUser(userId: number): Promise<SoundCloudUser> {
-    return this.request<SoundCloudUser>(`/users/${userId}`);
+  async getTrack(trackId: Id): Promise<SoundCloudTrack> {
+    return this.request<SoundCloudTrack>(`/tracks/${toUrn("tracks", trackId)}`);
   }
 
-  async getRelatedTracks(trackId: number, limit = 50): Promise<SoundCloudTrack[]> {
-    return this.request<SoundCloudTrack[]>(`/tracks/${trackId}/related?limit=${limit}`);
+  async getUser(userId: Id): Promise<SoundCloudUser> {
+    return this.request<SoundCloudUser>(`/users/${toUrn("users", userId)}`);
   }
 
-  async getTrackStreams(trackId: number): Promise<TrackStreams> {
-    return this.request<TrackStreams>(`/tracks/${trackId}/streams`);
+  async getRelatedTracks(trackId: Id, limit = 50): Promise<SoundCloudTrack[]> {
+    return this.request<SoundCloudTrack[]>(`/tracks/${toUrn("tracks", trackId)}/related?limit=${limit}`);
   }
 
-  async getTrackComments(trackId: number, limit = 50): Promise<PaginatedResponse<Comment>> {
-    return this.request<PaginatedResponse<Comment>>(
-      `/tracks/${trackId}/comments?limit=${limit}&linked_partitioning=true`
-    );
+  async getRelatedArtists(userId: Id, limit = 50): Promise<SoundCloudUser[]> {
+    return this.request<SoundCloudUser[]>(`/users/${toUrn("users", userId)}/related?limit=${limit}`);
+  }
+
+  async getUserTracks(userId: Id, limit = 50): Promise<PaginatedResponse<SoundCloudTrack>> {
+    return this.page<SoundCloudTrack>(`/users/${toUrn("users", userId)}/tracks`, { limit });
+  }
+
+  async getUserLikes(userId: Id, limit = 50): Promise<PaginatedResponse<SoundCloudTrack>> {
+    return this.page<SoundCloudTrack>(`/users/${toUrn("users", userId)}/likes/tracks`, { limit });
+  }
+
+  async getTrackStreams(trackId: Id): Promise<TrackStreams> {
+    return this.request<TrackStreams>(`/tracks/${toUrn("tracks", trackId)}/streams`);
+  }
+
+  async getTrackComments(trackId: Id, limit = 50): Promise<PaginatedResponse<Comment>> {
+    return this.page<Comment>(`/tracks/${toUrn("tracks", trackId)}/comments`, { limit });
   }
 
   // --- Social ---
-  async likeTrack(trackId: number): Promise<void> {
-    await this.request<void>(`/likes/tracks/${trackId}`, { method: "POST" });
+  async likeTrack(trackId: Id): Promise<void> {
+    await this.request<void>(`/likes/tracks/${toUrn("tracks", trackId)}`, { method: "POST" });
   }
 
-  async unlikeTrack(trackId: number): Promise<void> {
-    await this.request<void>(`/likes/tracks/${trackId}`, { method: "DELETE" });
+  async unlikeTrack(trackId: Id): Promise<void> {
+    await this.request<void>(`/likes/tracks/${toUrn("tracks", trackId)}`, { method: "DELETE" });
   }
 
-  async followUser(userId: number): Promise<void> {
-    await this.request<void>(`/me/followings/${userId}`, { method: "PUT" });
+  async repostTrack(trackId: Id): Promise<void> {
+    await this.request<void>(`/reposts/tracks/${toUrn("tracks", trackId)}`, { method: "POST" });
   }
 
-  async unfollowUser(userId: number): Promise<void> {
-    await this.request<void>(`/me/followings/${userId}`, { method: "DELETE" });
+  async unrepostTrack(trackId: Id): Promise<void> {
+    await this.request<void>(`/reposts/tracks/${toUrn("tracks", trackId)}`, { method: "DELETE" });
   }
 
-  async addComment(trackId: number, body: string, timestamp?: number): Promise<void> {
-    await this.request<void>(`/tracks/${trackId}/comments`, {
+  async followUser(userId: Id): Promise<void> {
+    await this.request<void>(`/me/followings/${toUrn("users", userId)}`, { method: "PUT" });
+  }
+
+  async unfollowUser(userId: Id): Promise<void> {
+    await this.request<void>(`/me/followings/${toUrn("users", userId)}`, { method: "DELETE" });
+  }
+
+  async addComment(trackId: Id, body: string, timestamp?: number): Promise<void> {
+    await this.request<void>(`/tracks/${toUrn("tracks", trackId)}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ comment: { body, timestamp } }),
@@ -157,34 +192,51 @@ export class SoundCloudAPI {
     return this.request<SoundCloudUser>("/me");
   }
 
-  async getRecommendedTracks(limit = 50): Promise<SoundCloudTrack[]> {
-    return this.request<SoundCloudTrack[]>(`/me/recommended/tracks?limit=${limit}`);
+  async getMyLikes(limit = 50): Promise<PaginatedResponse<SoundCloudLike>> {
+    return this.page<SoundCloudLike>("/me/likes/tracks", { limit });
   }
 
-  async getUserLikes(limit = 50): Promise<PaginatedResponse<SoundCloudLike>> {
-    return this.request<PaginatedResponse<SoundCloudLike>>(
-      `/me/likes/tracks?limit=${limit}&linked_partitioning=true`
-    );
+  async getMyPlaylists(limit = 50): Promise<PaginatedResponse<SoundCloudPlaylist>> {
+    return this.page<SoundCloudPlaylist>("/me/playlists", { limit });
   }
 
-  async getUserPlaylists(limit = 50): Promise<PaginatedResponse<SoundCloudPlaylist>> {
-    return this.request<PaginatedResponse<SoundCloudPlaylist>>(
-      `/me/playlists?limit=${limit}&linked_partitioning=true`
-    );
+  async getMyTracks(limit = 50): Promise<PaginatedResponse<SoundCloudTrack>> {
+    return this.page<SoundCloudTrack>("/me/tracks", { limit });
   }
 
-  async getPlaylist(playlistId: number): Promise<SoundCloudPlaylist> {
-    return this.request<SoundCloudPlaylist>(`/playlists/${playlistId}`);
+  async getMyFollowings(limit = 50): Promise<PaginatedResponse<SoundCloudUser>> {
+    return this.page<SoundCloudUser>("/me/followings", { limit });
   }
 
+  // New tracks from people you follow — the closest thing to a home feed, and
+  // the nearest replacement for the removed /me/recommended/tracks endpoint.
+  async getFeed(limit = 50): Promise<PaginatedResponse<FeedItem>> {
+    return this.page<FeedItem>("/me/feed/tracks", { limit });
+  }
+
+  async getRecentlyPlayed(limit = 50): Promise<PaginatedResponse<SoundCloudTrack>> {
+    return this.page<SoundCloudTrack>("/me/recently-played/tracks", { limit });
+  }
+
+  async getPlaylist(playlistId: Id): Promise<SoundCloudPlaylist> {
+    return this.request<SoundCloudPlaylist>(`/playlists/${toUrn("playlists", playlistId)}`);
+  }
+
+  async getPlaylistTracks(playlistId: Id, limit = 50): Promise<PaginatedResponse<SoundCloudTrack>> {
+    return this.page<SoundCloudTrack>(`/playlists/${toUrn("playlists", playlistId)}/tracks`, {
+      limit,
+    });
+  }
+
+  // next_href is an absolute URL, so it is fetched as-is.
   async getNextPage<T>(nextHref: string): Promise<PaginatedResponse<T>> {
-    return this.request<PaginatedResponse<T>>(nextHref.replace(this.baseUrl, ""));
+    return this.request<PaginatedResponse<T>>(nextHref);
   }
 
   // --- Playlist writes ---
   async createPlaylist(
     title: string,
-    options: { description?: string; sharing?: "public" | "private"; trackIds?: number[] } = {}
+    options: { description?: string; sharing?: "public" | "private"; trackIds?: Id[] } = {}
   ): Promise<SoundCloudPlaylist> {
     const playlist: Record<string, unknown> = {
       title,
@@ -200,15 +252,20 @@ export class SoundCloudAPI {
   }
 
   async updatePlaylist(
-    playlistId: number,
-    updates: { title?: string; description?: string; sharing?: "public" | "private"; trackIds?: number[] }
+    playlistId: Id,
+    updates: {
+      title?: string;
+      description?: string;
+      sharing?: "public" | "private";
+      trackIds?: Id[];
+    }
   ): Promise<SoundCloudPlaylist> {
     const playlist: Record<string, unknown> = {};
     if (updates.title !== undefined) playlist.title = updates.title;
     if (updates.description !== undefined) playlist.description = updates.description;
     if (updates.sharing !== undefined) playlist.sharing = updates.sharing;
     if (updates.trackIds !== undefined) playlist.tracks = updates.trackIds.map(playlistTrackRef);
-    return this.request<SoundCloudPlaylist>(`/playlists/${playlistId}`, {
+    return this.request<SoundCloudPlaylist>(`/playlists/${toUrn("playlists", playlistId)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ playlist }),
@@ -216,56 +273,22 @@ export class SoundCloudAPI {
   }
 
   // SoundCloud has no append endpoint; the full track list must be re-sent.
-  async addTracksToPlaylist(playlistId: number, trackIds: number[]): Promise<SoundCloudPlaylist> {
+  async addTracksToPlaylist(playlistId: Id, trackIds: Id[]): Promise<SoundCloudPlaylist> {
     const existing = await this.getPlaylist(playlistId);
-    const ids = [...(existing.tracks ?? []).map((t) => t.id), ...trackIds];
+    const ids = [...(existing.tracks ?? []).map((t) => t.urn ?? t.id), ...trackIds];
     return this.updatePlaylist(playlistId, { trackIds: ids });
   }
 
-  async removeTrackFromPlaylist(playlistId: number, trackId: number): Promise<SoundCloudPlaylist> {
+  async removeTrackFromPlaylist(playlistId: Id, trackId: Id): Promise<SoundCloudPlaylist> {
     const existing = await this.getPlaylist(playlistId);
-    const ids = (existing.tracks ?? []).map((t) => t.id).filter((id) => id !== trackId);
+    const target = toUrn("tracks", trackId);
+    const ids = (existing.tracks ?? [])
+      .map((t) => t.urn ?? t.id)
+      .filter((id) => toUrn("tracks", id) !== target);
     return this.updatePlaylist(playlistId, { trackIds: ids });
   }
 
-  async deletePlaylist(playlistId: number): Promise<void> {
-    await this.request<void>(`/playlists/${playlistId}`, { method: "DELETE" });
-  }
-
-  // --- Messaging ---
-  async getConversations(limit = 50): Promise<PaginatedResponse<Conversation>> {
-    return this.request<PaginatedResponse<Conversation>>(
-      `/me/conversations?limit=${limit}&linked_partitioning=true`
-    );
-  }
-
-  async getConversation(conversationId: number): Promise<Conversation> {
-    return this.request<Conversation>(`/me/conversations/${conversationId}`);
-  }
-
-  async getMessages(conversationId: number, limit = 50): Promise<PaginatedResponse<Message>> {
-    return this.request<PaginatedResponse<Message>>(
-      `/me/conversations/${conversationId}/messages?limit=${limit}&linked_partitioning=true`
-    );
-  }
-
-  async sendMessage(conversationId: number, body: string): Promise<Message> {
-    return this.request<Message>(`/me/conversations/${conversationId}/messages`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: { body } }),
-    });
-  }
-
-  async startConversation(userId: number, message: string): Promise<Conversation> {
-    return this.request<Conversation>("/me/conversations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ conversation: { participant_ids: [userId], initial_message: message } }),
-    });
-  }
-
-  async markConversationAsRead(conversationId: number): Promise<void> {
-    await this.request<void>(`/me/conversations/${conversationId}/mark-read`, { method: "PUT" });
+  async deletePlaylist(playlistId: Id): Promise<void> {
+    await this.request<void>(`/playlists/${toUrn("playlists", playlistId)}`, { method: "DELETE" });
   }
 }

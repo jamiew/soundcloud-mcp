@@ -25,6 +25,9 @@ const DESTRUCTIVE = {
   openWorldHint: true,
 } as const;
 
+/** Accepts either a numeric id or a `soundcloud:…` URN. */
+const id = z.union([z.string(), z.number()]);
+
 // Wraps return data: text block (always, for back-compat) + structuredContent for
 // objects + any extra content blocks (e.g. resource links).
 function ok(data: unknown, extra: ContentBlock[] = []): ToolResult {
@@ -150,6 +153,18 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
 
   // --- Discovery / search ---
   server.registerTool(
+    "resolve_url",
+    {
+      title: "Resolve a SoundCloud URL",
+      description:
+        "Turn any soundcloud.com or on.soundcloud.com permalink into the underlying track, user, or playlist. Use this whenever the user pastes a SoundCloud link.",
+      inputSchema: { url: z.string().url() },
+      annotations: { title: "Resolve a SoundCloud URL", ...READ },
+    },
+    async ({ url }) => run(() => api.resolve(url))
+  );
+
+  server.registerTool(
     "search_tracks",
     {
       title: "Search tracks",
@@ -197,7 +212,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
     {
       title: "Get track",
       description: "Get information about a specific track",
-      inputSchema: { trackId: z.number().min(1) },
+      inputSchema: { trackId: id },
       annotations: { title: "Get track", ...READ },
     },
     async ({ trackId }) => run(() => api.getTrack(trackId), trackLinks)
@@ -208,7 +223,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
     {
       title: "Get user",
       description: "Get a user's public profile by ID",
-      inputSchema: { userId: z.number().min(1) },
+      inputSchema: { userId: id },
       annotations: { title: "Get user", ...READ },
     },
     async ({ userId }) => run(() => api.getUser(userId))
@@ -219,7 +234,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
     {
       title: "Get playlist",
       description: "Get information about a specific playlist",
-      inputSchema: { playlistId: z.number().min(1) },
+      inputSchema: { playlistId: id },
       annotations: { title: "Get playlist", ...READ },
     },
     async ({ playlistId }) => run(() => api.getPlaylist(playlistId), playlistLinks)
@@ -230,10 +245,65 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
     {
       title: "Get related tracks",
       description: "Get tracks related to a specific track",
-      inputSchema: { trackId: z.number().min(1), limit: z.number().min(1).max(200).optional() },
+      inputSchema: { trackId: id, limit: z.number().min(1).max(200).optional() },
       annotations: { title: "Get related tracks", ...READ },
     },
     async ({ trackId, limit }) => run(() => api.getRelatedTracks(trackId, limit))
+  );
+
+  server.registerTool(
+    "get_related_artists",
+    {
+      title: "Get related artists",
+      description: "Get artists related to a user — SoundCloud's artist-to-artist recommendations",
+      inputSchema: { userId: id, limit: z.number().min(1).max(200).optional() },
+      annotations: { title: "Get related artists", ...READ },
+    },
+    async ({ userId, limit }) => run(() => api.getRelatedArtists(userId, limit))
+  );
+
+  server.registerTool(
+    "get_user_tracks",
+    {
+      title: "Get an artist's tracks",
+      description: "List the tracks a user has uploaded, newest first",
+      inputSchema: { userId: id, limit: z.number().min(1).max(200).optional() },
+      annotations: { title: "Get an artist's tracks", ...READ },
+    },
+    async ({ userId, limit }) => run(() => api.getUserTracks(userId, limit))
+  );
+
+  server.registerTool(
+    "get_user_likes",
+    {
+      title: "Get an artist's likes",
+      description: "List tracks a user has liked — often a better taste signal than their uploads",
+      inputSchema: { userId: id, limit: z.number().min(1).max(200).optional() },
+      annotations: { title: "Get an artist's likes", ...READ },
+    },
+    async ({ userId, limit }) => run(() => api.getUserLikes(userId, limit))
+  );
+
+  server.registerTool(
+    "get_playlist_tracks",
+    {
+      title: "Get playlist tracks",
+      description: "Page through a playlist's tracks without refetching the whole playlist",
+      inputSchema: { playlistId: id, limit: z.number().min(1).max(200).optional() },
+      annotations: { title: "Get playlist tracks", ...READ },
+    },
+    async ({ playlistId, limit }) => run(() => api.getPlaylistTracks(playlistId, limit))
+  );
+
+  server.registerTool(
+    "next_page",
+    {
+      title: "Next page",
+      description: "Follow the next_href cursor from any paginated result to fetch the next page",
+      inputSchema: { nextHref: z.string().url().describe("The next_href from a previous result") },
+      annotations: { title: "Next page", ...READ },
+    },
+    async ({ nextHref }) => run(() => api.getNextPage(nextHref))
   );
 
   server.registerTool(
@@ -241,7 +311,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
     {
       title: "Get stream URL",
       description: "Get playable audio stream URLs for a track (time-limited)",
-      inputSchema: { trackId: z.number().min(1) },
+      inputSchema: { trackId: id },
       annotations: { title: "Get stream URL", ...READ },
     },
     async ({ trackId }) => run(() => api.getTrackStreams(trackId), streamLinks)
@@ -252,7 +322,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
     {
       title: "Get track comments",
       description: "Get comments for a track",
-      inputSchema: { trackId: z.number().min(1), limit: z.number().min(1).max(200).optional() },
+      inputSchema: { trackId: id, limit: z.number().min(1).max(200).optional() },
       annotations: { title: "Get track comments", ...READ },
     },
     async ({ trackId, limit }) => run(() => api.getTrackComments(trackId, limit))
@@ -280,7 +350,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       },
       annotations: { title: "Get my likes", ...READ },
     },
-    async ({ limit, nextPage }) => run(() => (nextPage ? api.getNextPage(nextPage) : api.getUserLikes(limit)))
+    async ({ limit, nextPage }) => run(() => (nextPage ? api.getNextPage(nextPage) : api.getMyLikes(limit)))
   );
 
   server.registerTool(
@@ -295,18 +365,52 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       annotations: { title: "Get my playlists", ...READ },
     },
     async ({ limit, nextPage }) =>
-      run(() => (nextPage ? api.getNextPage(nextPage) : api.getUserPlaylists(limit)))
+      run(() => (nextPage ? api.getNextPage(nextPage) : api.getMyPlaylists(limit)))
   );
 
   server.registerTool(
-    "get_recommended_tracks",
+    "get_my_tracks",
     {
-      title: "Get recommendations",
-      description: "Get personalized track recommendations",
+      title: "Get my uploads",
+      description: "Get tracks the logged-in user has uploaded",
       inputSchema: { limit: z.number().min(1).max(200).optional() },
-      annotations: { title: "Get recommendations", ...READ },
+      annotations: { title: "Get my uploads", ...READ },
     },
-    async ({ limit }) => run(() => api.getRecommendedTracks(limit))
+    async ({ limit }) => run(() => api.getMyTracks(limit))
+  );
+
+  server.registerTool(
+    "get_my_followings",
+    {
+      title: "Get who I follow",
+      description: "Get the users the logged-in user follows",
+      inputSchema: { limit: z.number().min(1).max(200).optional() },
+      annotations: { title: "Get who I follow", ...READ },
+    },
+    async ({ limit }) => run(() => api.getMyFollowings(limit))
+  );
+
+  server.registerTool(
+    "get_feed",
+    {
+      title: "Get my feed",
+      description:
+        "Recent tracks from people the user follows — the personalized discovery surface, and the nearest thing SoundCloud still offers to recommendations",
+      inputSchema: { limit: z.number().min(1).max(200).optional() },
+      annotations: { title: "Get my feed", ...READ },
+    },
+    async ({ limit }) => run(() => api.getFeed(limit))
+  );
+
+  server.registerTool(
+    "get_recently_played",
+    {
+      title: "Get recently played",
+      description: "Tracks the logged-in user played recently, most recent first",
+      inputSchema: { limit: z.number().min(1).max(200).optional() },
+      annotations: { title: "Get recently played", ...READ },
+    },
+    async ({ limit }) => run(() => api.getRecentlyPlayed(limit))
   );
 
   // --- Social writes ---
@@ -315,7 +419,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
     {
       title: "Like track",
       description: "Like a track",
-      inputSchema: { trackId: z.number().min(1) },
+      inputSchema: { trackId: id },
       annotations: { title: "Like track", ...WRITE, idempotentHint: true },
     },
     async ({ trackId }) =>
@@ -330,7 +434,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
     {
       title: "Unlike track",
       description: "Unlike a track",
-      inputSchema: { trackId: z.number().min(1) },
+      inputSchema: { trackId: id },
       annotations: { title: "Unlike track", ...WRITE, idempotentHint: true },
     },
     async ({ trackId }) =>
@@ -341,11 +445,41 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
   );
 
   server.registerTool(
+    "repost_track",
+    {
+      title: "Repost track",
+      description: "Repost a track to your followers",
+      inputSchema: { trackId: id },
+      annotations: { title: "Repost track", ...WRITE, idempotentHint: true },
+    },
+    async ({ trackId }) =>
+      run(async () => {
+        await api.repostTrack(trackId);
+        return `Reposted track ${trackId}.`;
+      })
+  );
+
+  server.registerTool(
+    "unrepost_track",
+    {
+      title: "Remove repost",
+      description: "Remove a repost of a track",
+      inputSchema: { trackId: id },
+      annotations: { title: "Remove repost", ...WRITE, idempotentHint: true },
+    },
+    async ({ trackId }) =>
+      run(async () => {
+        await api.unrepostTrack(trackId);
+        return `Removed repost of track ${trackId}.`;
+      })
+  );
+
+  server.registerTool(
     "follow_user",
     {
       title: "Follow user",
       description: "Follow a user",
-      inputSchema: { userId: z.number().min(1) },
+      inputSchema: { userId: id },
       annotations: { title: "Follow user", ...WRITE, idempotentHint: true },
     },
     async ({ userId }) =>
@@ -360,7 +494,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
     {
       title: "Unfollow user",
       description: "Unfollow a user",
-      inputSchema: { userId: z.number().min(1) },
+      inputSchema: { userId: id },
       annotations: { title: "Unfollow user", ...WRITE, idempotentHint: true },
     },
     async ({ userId }) =>
@@ -375,7 +509,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
     {
       title: "Add comment",
       description: "Add a comment to a track",
-      inputSchema: { trackId: z.number().min(1), body: z.string(), timestamp: z.number().optional() },
+      inputSchema: { trackId: id, body: z.string(), timestamp: z.number().optional() },
       annotations: { title: "Add comment", ...WRITE },
     },
     async ({ trackId, body, timestamp }) =>
@@ -395,7 +529,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
         title: z.string(),
         description: z.string().optional(),
         sharing: z.enum(["public", "private"]).optional(),
-        trackIds: z.array(z.number()).optional(),
+        trackIds: z.array(id).optional(),
       },
       annotations: { title: "Create playlist", ...WRITE },
     },
@@ -409,11 +543,11 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       title: "Update playlist",
       description: "Rename, redescribe, change sharing, or replace the tracklist of a playlist",
       inputSchema: {
-        playlistId: z.number().min(1),
+        playlistId: id,
         title: z.string().optional(),
         description: z.string().optional(),
         sharing: z.enum(["public", "private"]).optional(),
-        trackIds: z.array(z.number()).optional(),
+        trackIds: z.array(id).optional(),
       },
       annotations: { title: "Update playlist", ...DESTRUCTIVE },
     },
@@ -425,7 +559,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
     {
       title: "Add tracks to playlist",
       description: "Append tracks to an existing playlist",
-      inputSchema: { playlistId: z.number().min(1), trackIds: z.array(z.number()).min(1) },
+      inputSchema: { playlistId: id, trackIds: z.array(id).min(1) },
       annotations: { title: "Add tracks to playlist", ...WRITE },
     },
     async ({ playlistId, trackIds }) =>
@@ -437,7 +571,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
     {
       title: "Remove track from playlist",
       description: "Remove a track from a playlist",
-      inputSchema: { playlistId: z.number().min(1), trackId: z.number().min(1) },
+      inputSchema: { playlistId: id, trackId: id },
       annotations: { title: "Remove track from playlist", ...DESTRUCTIVE },
     },
     async ({ playlistId, trackId }) =>
@@ -449,84 +583,13 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
     {
       title: "Delete playlist",
       description: "Delete a playlist permanently",
-      inputSchema: { playlistId: z.number().min(1) },
+      inputSchema: { playlistId: id },
       annotations: { title: "Delete playlist", ...DESTRUCTIVE },
     },
     async ({ playlistId }) =>
       run(async () => {
         await api.deletePlaylist(playlistId);
         return `Deleted playlist ${playlistId}.`;
-      })
-  );
-
-  // --- Messaging ---
-  server.registerTool(
-    "get_conversations",
-    {
-      title: "Get conversations",
-      description: "Get your direct message conversations",
-      inputSchema: { limit: z.number().min(1).max(200).optional() },
-      annotations: { title: "Get conversations", ...READ },
-    },
-    async ({ limit }) => run(() => api.getConversations(limit))
-  );
-
-  server.registerTool(
-    "get_conversation",
-    {
-      title: "Get conversation",
-      description: "Get details of a specific conversation",
-      inputSchema: { conversationId: z.number().min(1) },
-      annotations: { title: "Get conversation", ...READ },
-    },
-    async ({ conversationId }) => run(() => api.getConversation(conversationId))
-  );
-
-  server.registerTool(
-    "get_messages",
-    {
-      title: "Get messages",
-      description: "Get messages from a conversation",
-      inputSchema: { conversationId: z.number().min(1), limit: z.number().min(1).max(200).optional() },
-      annotations: { title: "Get messages", ...READ },
-    },
-    async ({ conversationId, limit }) => run(() => api.getMessages(conversationId, limit))
-  );
-
-  server.registerTool(
-    "send_message",
-    {
-      title: "Send message",
-      description: "Send a message in a conversation",
-      inputSchema: { conversationId: z.number().min(1), message: z.string() },
-      annotations: { title: "Send message", ...WRITE },
-    },
-    async ({ conversationId, message }) => run(() => api.sendMessage(conversationId, message))
-  );
-
-  server.registerTool(
-    "start_conversation",
-    {
-      title: "Start conversation",
-      description: "Start a new conversation with a user",
-      inputSchema: { userId: z.number().min(1), message: z.string() },
-      annotations: { title: "Start conversation", ...WRITE },
-    },
-    async ({ userId, message }) => run(() => api.startConversation(userId, message))
-  );
-
-  server.registerTool(
-    "mark_conversation_read",
-    {
-      title: "Mark conversation read",
-      description: "Mark a conversation as read",
-      inputSchema: { conversationId: z.number().min(1) },
-      annotations: { title: "Mark conversation read", ...WRITE, idempotentHint: true },
-    },
-    async ({ conversationId }) =>
-      run(async () => {
-        await api.markConversationAsRead(conversationId);
-        return `Marked conversation ${conversationId} as read.`;
       })
   );
 
@@ -539,7 +602,7 @@ function registerPrompts(server: McpServer, api: SoundCloudAPI): void {
     "analyze_music_taste",
     { title: "Analyze music taste", description: "Analyze a user's music taste based on their liked tracks" },
     async () => {
-      const likes = await api.getUserLikes(50);
+      const likes = await api.getMyLikes(50);
       return {
         messages: [
           {
@@ -588,7 +651,7 @@ function registerPrompts(server: McpServer, api: SoundCloudAPI): void {
       argsSchema: { genres: z.string().optional(), mood: z.string().optional() },
     },
     async ({ genres, mood }) => {
-      const likes = await api.getUserLikes(20);
+      const likes = await api.getMyLikes(20);
       const seed = genres?.split(",")[0]?.trim();
       const search = seed ? await api.searchTracks(seed, 20) : { collection: [] };
       return {
@@ -631,7 +694,7 @@ function registerResources(server: McpServer, api: SoundCloudAPI): void {
         {
           uri: uri.href,
           mimeType: "application/json",
-          text: JSON.stringify(await api.getUserPlaylists(), null, 2),
+          text: JSON.stringify(await api.getMyPlaylists(), null, 2),
         },
       ],
     })
@@ -646,7 +709,7 @@ function registerResources(server: McpServer, api: SoundCloudAPI): void {
         {
           uri: uri.href,
           mimeType: "application/json",
-          text: JSON.stringify(await api.getUserLikes(), null, 2),
+          text: JSON.stringify(await api.getMyLikes(), null, 2),
         },
       ],
     })

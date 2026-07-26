@@ -7,30 +7,61 @@ Living status doc for `soundcloud-mcp`. Two servers share this repo:
 
 ## Exec summary
 
-The stdio server works and is in daily use. An audit against SoundCloud's
-official OpenAPI spec (July 2026) found that 7 of its 32 tools call endpoints
-the public API no longer serves, and that we were missing about a dozen
-endpoints that do exist — including the ones that best answer "show me this
-artist's tracks" and "recommend me something".
+Both servers are updated and in sync on capability. An audit against
+SoundCloud's official OpenAPI spec (July 2026) found that 7 of the stdio
+server's 32 tools called endpoints the public API no longer serves, and that we
+were missing about a dozen endpoints that do exist — including the ones that
+best answer "show me this artist's tracks" and "recommend me something". Both
+servers now drop the dead tools and expose the missing ones, and both take URNs
+or numeric ids.
 
-The Cloudflare worker is built, tested, and builds clean. It ports the live
-tools, drops the dead ones, and adds the missing ones. It is **not yet
-deployed** — see TODO.
+- **stdio:** 37 tools. Verified against the live API — 22/22 checks pass
+  (`node scripts/verify.mjs`).
+- **worker:** 32 tools, deployed at <https://soundcloud-mcp.jamie-7e9.workers.dev>.
+  Serves its OAuth discovery doc and 401s unauthenticated `/mcp`. The end-to-end
+  browser login is **not yet verified** — it needs secrets first.
 
 ## TODO
 
-- [ ] Set the three worker secrets (`SOUNDCLOUD_CLIENT_ID`,
-      `SOUNDCLOUD_CLIENT_SECRET`, `COOKIE_ENCRYPTION_KEY`) and `ALLOWED_USERS`
-- [ ] `pnpm deploy`, then register `https://<worker>.workers.dev/callback` as a
-      redirect URI on the SoundCloud app
+- [ ] Set the worker secrets (`SOUNDCLOUD_CLIENT_ID`, `SOUNDCLOUD_CLIENT_SECRET`,
+      `COOKIE_ENCRYPTION_KEY`, `ALLOWED_USERS`) — see the worker README
+- [ ] Register `https://soundcloud-mcp.jamie-7e9.workers.dev/callback` as a
+      redirect URI on the SoundCloud app, alongside the localhost one
 - [ ] Verify the end-to-end OAuth flow from a real client
-- [ ] Decide whether the SoundCloud app can hold both the localhost and worker
-      redirect URIs; if it is one-at-a-time, the stdio and remote servers cannot
-      both authenticate from the same app and one needs its own
-- [ ] Backport to the stdio server: delete the 7 dead tools, switch ids to URNs,
-      add `resolve_url` / `get_user_tracks` / `get_feed`
+- [ ] Confirm the SoundCloud app accepts both redirect URIs; if it is
+      one-at-a-time, stdio and remote cannot share an app and one needs its own
 - [ ] Set `DEPLOY_ENABLED` repo variable + `CLOUDFLARE_API_TOKEN` secret to turn
       on CI deploys (the workflow skips green until then)
+- [ ] Decide on deduplicating the two servers — see "Keeping both in sync"
+
+## Keeping both in sync
+
+Right now `src/api.ts` + `src/tools.ts` and
+`soundcloud-mcp-cloudflare/src/soundcloud.ts` + `tools.ts` are near-duplicates.
+Every API change means the same edit twice, which is exactly how the two drift.
+
+The good news: the duplication is nearly all shareable. The client is plain
+`fetch` and the tool definitions are transport-agnostic — both run unmodified on
+Node 22 and on Workers. Only three things are genuinely runtime-specific:
+the token store (disk vs Durable Object), the login flow (loopback HTTP server
+vs OAuth provider), and the entrypoint.
+
+Options, cheapest first:
+
+1. **Leave it duplicated, keep this doc honest.** Zero work. Fine while both are
+   changing fast; bad once they are stable and drift is silent.
+2. **Shared `core/` directory, two thin entrypoints.** Move the client, types
+   and tool registration into `core/`, have both servers import it. ~1 hour.
+   The tool layer already takes an injected token provider, so this is mostly
+   moving files. Best value.
+3. **One package, two entrypoints.** Collapse to a single `package.json` with
+   `src/stdio.ts` and `src/worker.ts`. Simplest mental model but forces one
+   toolchain (pnpm + Workers types) onto the Node build, which is friction for
+   the npm-published stdio path.
+
+A long-lived branch is the one option worth ruling out: the changes are
+additive to shared files, so it would be a permanent merge conflict.
+Recommendation is 2, once the endpoint churn settles.
 
 ## What the API audit found
 
@@ -38,7 +69,7 @@ Source of truth: <https://github.com/soundcloud/api> (`openapi/api.yaml`, 64
 operations) plus SoundCloud's `Agents.md` and the API guide. Verified against
 the live API with the stdio server on 2026-07-25.
 
-### Dead — remove from the stdio server
+### Dead — removed from both servers
 
 Not in the spec; the live API returns **405**:
 
@@ -53,7 +84,7 @@ public API.
 
 ### Missing — endpoints that exist and we did not expose
 
-Added in the worker, still absent from stdio:
+Now exposed by both servers:
 
 | Endpoint | Why it matters |
 |---|---|
@@ -105,7 +136,7 @@ repos, nearly all under 10 stars:
 
 Nothing worth copying architecturally. Nobody else uses URNs, exposes
 `/resolve`, or handles the rotating refresh token correctly — the three things
-most likely to bite. Our tool count (32 live) is already the largest of the set.
+most likely to bite. Our tool count (37 stdio / 32 worker, all live) is the largest of the set.
 
 ## Gotchas worth remembering
 

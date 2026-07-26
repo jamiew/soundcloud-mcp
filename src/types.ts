@@ -1,5 +1,6 @@
 export interface SoundCloudUser {
   id: number;
+  urn: string;
   permalink: string;
   username: string;
   uri: string;
@@ -17,6 +18,7 @@ export interface SoundCloudUser {
 
 export interface SoundCloudTrack {
   id: number;
+  urn: string;
   title: string;
   permalink: string;
   permalink_url: string;
@@ -44,6 +46,7 @@ export interface SoundCloudTrack {
 
 export interface SoundCloudPlaylist {
   id: number;
+  urn: string;
   title: string;
   permalink: string;
   permalink_url: string;
@@ -96,22 +99,14 @@ export interface Comment {
   track_id: number;
 }
 
-export interface Message {
-  id: number;
-  body: string;
-  timestamp: string;
-  user_id: number;
-  user: SoundCloudUser;
-  conversation_id: number;
-  read: boolean;
-}
-
-export interface Conversation {
-  id: number;
+// /me/feed/tracks returns activity wrappers, not bare tracks: each entry has a
+// `type` like "track" or "track:repost" and carries the track inside.
+export interface FeedItem {
+  type: string;
   created_at: string;
-  last_message: string;
-  participants: SoundCloudUser[];
-  unread_messages_count: number;
+  track?: SoundCloudTrack;
+  playlist?: SoundCloudPlaylist;
+  user?: SoundCloudUser;
 }
 
 export interface PaginatedResponse<T> {

@@ -102,18 +102,23 @@ natively via Node's `--env-file-if-exists` (no `dotenv` dependency; needs Node 2
 ## Tools
 
 - **Auth:** `connect_soundcloud`, `auth_status`, `sign_out`
-- **Discovery:** `search_tracks`, `search_playlists`, `search_users`, `get_track`,
-  `get_user`, `get_playlist`, `get_related_tracks`, `get_stream_url`, `get_comments`
-- **Library (login):** `get_profile`, `get_likes`, `get_playlists`
-- **Social (login):** `like_track`, `unlike_track`, `follow_user`, `unfollow_user`, `add_comment`
+- **Discovery:** `resolve_url`, `search_tracks`, `search_playlists`, `search_users`,
+  `get_track`, `get_user`, `get_user_tracks`, `get_user_likes`, `get_playlist`,
+  `get_playlist_tracks`, `get_related_tracks`, `get_related_artists`,
+  `get_stream_url`, `get_comments`, `next_page`
+- **Library (login):** `get_profile`, `get_likes`, `get_playlists`, `get_my_tracks`,
+  `get_my_followings`, `get_feed`, `get_recently_played`
+- **Social (login):** `like_track`, `unlike_track`, `repost_track`, `unrepost_track`,
+  `follow_user`, `unfollow_user`, `add_comment`
 - **Playlists (login):** `create_playlist`, `update_playlist`, `add_tracks_to_playlist`,
   `remove_track_from_playlist`, `delete_playlist`
 
-Seven tools here are **currently broken**: `get_recommended_tracks` and the six
-messaging tools call endpoints SoundCloud has removed from the public API (they
-return 405). They are still registered but always error — see
-[`PLAN.md`](PLAN.md) for the full audit and the replacement endpoints. The
-Cloudflare version already drops them.
+Every id argument accepts either a numeric id or a `soundcloud:tracks:123` URN.
+URNs are what SoundCloud now prefers; numeric ids still work.
+
+`get_recommended_tracks` and the six messaging tools were removed — SoundCloud
+no longer serves those endpoints (405). `get_feed` and `get_related_tracks` are
+what discovery looks like now; see [`PLAN.md`](PLAN.md) for the full audit.
 
 ## Environment variables
 

@@ -10,7 +10,12 @@ API audit.
 - `soundcloud-mcp-cloudflare/` — remote MCP server on Cloudflare Workers, pnpm.
   Run its scripts from inside that directory.
 
-The two do not share code. A change to a tool usually wants making in both.
+The two do not share code yet — a change to a tool usually wants making in
+**both**. `PLAN.md` has the options for deduplicating them.
+
+Verify stdio changes against the live API with `npm run build && node scripts/verify.mjs`,
+which exercises every read tool plus a create/read/delete playlist round-trip
+and cleans up after itself.
 
 ## SoundCloud API rules
 
