@@ -67,7 +67,9 @@ export class SoundCloudClient {
 	constructor(
 		private readonly tokens: TokenProvider,
 		private readonly baseUrl: string = API_BASE,
-		private readonly fetchImpl: typeof fetch = fetch,
+		// Must stay bound: Workers throws "Illegal invocation" if the global fetch
+		// is called with anything but the global object as `this`.
+		private readonly fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis),
 	) {}
 
 	async request<T>(path: string, spec: RequestSpec = {}): Promise<T> {
