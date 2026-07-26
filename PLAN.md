@@ -18,8 +18,11 @@ or numeric ids.
 - **stdio:** 37 tools. Verified against the live API — 22/22 checks pass
   (`node scripts/verify.mjs`).
 - **worker:** 32 tools, deployed at <https://soundcloud-mcp.jamie-7e9.workers.dev>.
-  Serves its OAuth discovery doc and 401s unauthenticated `/mcp`. The end-to-end
-  browser login is **not yet verified** — it needs secrets first.
+  Secrets are set. Verified by curl: discovery doc, 401 on unauthenticated
+  `/mcp`, dynamic client registration, the consent dialog, and the 302 to
+  SoundCloud with correct PKCE + callback — SoundCloud renders its real sign-in
+  page, so the redirect URI is registered. `/` serves an install page. The only
+  unverified leg is the `/callback` return, which needs a human login.
 
 ## TODO
 

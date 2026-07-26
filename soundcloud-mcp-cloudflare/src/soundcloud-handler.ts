@@ -1,5 +1,6 @@
 import type { AuthRequest, OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import { Hono } from "hono";
+import { landingPage } from "./landing";
 import {
 	exchangeCode,
 	generatePkce,
@@ -70,6 +71,13 @@ async function redirectToSoundCloud(
 		},
 	});
 }
+
+app.get("/", (c) =>
+	c.html(landingPage(new URL(c.req.url).origin), 200, {
+		// Short, so a deploy's changes show up promptly.
+		"Cache-Control": "public, max-age=300",
+	}),
+);
 
 app.get("/authorize", async (c) => {
 	const oauthReqInfo = await c.env.OAUTH_PROVIDER.parseAuthRequest(c.req.raw);

@@ -1,7 +1,7 @@
 # SoundCloud MCP Server
 
 An MCP server that gives an assistant access to the SoundCloud API — search and
-discovery, your library, playlist management, social actions, and messaging.
+discovery, your library, playlist management, and social actions.
 
 Runs locally over stdio. Public search works with app credentials alone;
 personal data and writes require a one-time browser login that persists and
@@ -9,7 +9,9 @@ auto-refreshes its token.
 
 There is also a **remote** version for Cloudflare Workers in
 [`soundcloud-mcp-cloudflare/`](soundcloud-mcp-cloudflare/) — same tools, reachable
-as a URL, with browser OAuth per client instead of a local token file.
+as a URL, with browser OAuth per client instead of a local token file. A live
+instance with install instructions is at
+<https://soundcloud-mcp.jamie-7e9.workers.dev> (allowlisted; deploy your own).
 
 ## Setup
 

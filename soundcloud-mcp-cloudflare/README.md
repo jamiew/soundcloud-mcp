@@ -100,11 +100,21 @@ the agent registers tools.
 
 Prompts: `analyze_music_taste`, `discover_similar_tracks`.
 
+## Routes
+
+| Path | Purpose |
+| --- | --- |
+| `/` | install instructions for humans who land on the URL |
+| `/mcp` | Streamable HTTP transport (what clients connect to) |
+| `/sse` | SSE transport, for older clients |
+| `/authorize`, `/callback`, `/token`, `/register` | OAuth |
+
 ## Architecture
 
 - `index.ts` — `SoundCloudMCP` Durable Object (token state + refresh) and the
   `OAuthProvider` that fronts it
-- `soundcloud-handler.ts` — Hono app for `/authorize` and `/callback`
+- `soundcloud-handler.ts` — Hono app for `/`, `/authorize` and `/callback`
+- `landing.ts` — the public install page, self-contained HTML
 - `oauth.ts` — upstream SoundCloud OAuth: PKCE, code exchange, refresh, allowlist
 - `soundcloud.ts` — API client: URN normalization, 401 refresh-and-retry, pagination
 - `tools.ts` — MCP tool/prompt registration
