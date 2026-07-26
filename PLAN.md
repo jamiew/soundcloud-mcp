@@ -105,9 +105,69 @@ Now exposed by both servers:
 | `GET /playlists/{urn}/tracks` | page a playlist without refetching it whole |
 | `POST/DELETE /reposts/tracks/{urn}` | reposts, a first-class SoundCloud action we had no tool for |
 
-Still unexposed on both, low priority: `/me/activities`, `/me/reposts/*`,
-`/me/likes/playlists`, `/tracks/{urn}/favoriters|reposters`,
-`/users/{urn}/web-profiles`, `POST /tracks` (upload).
+### Still unexposed — 32 of 64 spec operations
+
+Regenerate this list with `node .claude/skills/soundcloud-api-sync/audit.mjs`.
+Ranked by value per unit of work; the top group is all plain GETs that reuse the
+existing pagination helper.
+
+| Endpoint | Why it matters |
+|---|---|
+| `GET /users/{urn}/web-profiles` | an artist's external links — Bandcamp, Instagram, PayPal. Tiny payload, no equivalent anywhere else. Verified live |
+| `GET /tracks/{urn}/favoriters`, `/tracks/{urn}/reposters`, `/playlists/{urn}/reposters` | who liked/reposted a track — audience discovery and social proof. Verified live |
+| `GET /me/reposts/tracks\|playlists`, `/users/{urn}/reposts/*` | reposts as a taste signal, often better than likes. Shipped 2026-03-24 |
+| `GET /users/{urn}/followers\|followings`, `/me/followers` | the social graph in both directions; we only expose `/me/followings` |
+| `GET /me/followings/{urn}` | "do I already follow X?" — 200 vs 404, worth checking before a follow write |
+| `GET /me/likes/playlists`, `/users/{urn}/likes/playlists` | we only handle track likes |
+| `POST/DELETE /likes/playlists/{urn}`, `/reposts/playlists/{urn}` | playlists are second-class in our tool set; tracks have both, playlists have neither |
+| `GET /me/activities`, `/me/activities/all/own`, `/me/activities/tracks`, `/me/feed` | richer activity feed than `/me/feed/tracks` — includes playlist activity and your own |
+| `POST /sign-out` | invalidate the token; the honest backing for a "disconnect" tool |
+| `POST /tracks`, `PUT/DELETE /tracks/{urn}` | upload and manage own tracks. Multipart, up to 4GB / 24h per track. Real work, and the worker's request-size limits make it stdio-first |
+| `PUT /tracks/{urn}/storefront` | Artist Storefront. Needs a creator subscription, so untestable on this account |
+| `GET /tracks/{urn}/preview` | 30s preview playback; `/streams` already covers our case |
+
+Two cheap wins that are not new endpoints at all:
+
+- **`sort=asc\|desc` on `GET /users/{urn}/tracks` and `/me/tracks`** — shipped
+  2026-07-19, verified live. One optional param on two existing tools and you can
+  ask for an artist's *earliest* work.
+- **`get_user_playlists`** — the worker already has the client method
+  (`getUserPlaylists`) but never registers it as a tool.
+
+## Tracking API changes
+
+SoundCloud has no versioning, no deprecation window, and no developer
+newsletter. Endpoints get removed and start returning 405 with no notice — that
+is how the messaging tools above died. The GitHub release notes are the only
+real changelog.
+
+Run `node .claude/skills/soundcloud-api-sync/audit.mjs --since <date>` to diff
+the live spec against what we call and list release notes since a date. The
+`soundcloud-api-sync` skill documents every official source and the rules that
+keep biting.
+
+Watchable feeds (no auth needed):
+
+- `https://github.com/soundcloud/api/releases.atom` — the changelog
+- `https://github.com/soundcloud/api/commits/master/openapi/api.yaml.atom` — spec
+  edits, which sometimes land before the release note
+
+Also [@SoundCloudDev](https://x.com/SoundCloudDev),
+[Bluesky](https://bsky.app/profile/soundcloud.dev), and the
+[Backstage blog](https://developers.soundcloud.com/blog) (no RSS).
+
+**SoundCloud API synced through: 2026-07-19** (latest release: `sort` parameter
+for user tracks). Update this line whenever the audit is run.
+
+### The SDKs are dead — don't copy them
+
+`soundcloud-javascript`, `soundcloud-python`, and `soundcloud-ruby` are all
+unmaintained. The JS repo's README leads with "DEPRECATED - NO LONGER
+MAINTAINED" and admits it is already out of sync with the API; its last real
+code change was 2019 (a 2026 push was just a Renovate bot config). SoundCloud's
+own guidance is to build a client from the spec, which is what both servers do.
+`Widget-JS-API` and `soundcloud-custom-player` are still alive but are embed
+players, not API clients.
 
 ### Recommendations, honestly
 
