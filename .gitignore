@@ -14,3 +14,6 @@ tmp/
 
 # symlink to the sibling Spotify worker, kept for reference while porting
 spotify-mcp-cloudflare
+
+# agents
+.claude/settings.local.json
