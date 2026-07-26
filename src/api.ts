@@ -214,8 +214,10 @@ export class SoundCloudAPI {
     return this.page<FeedItem>("/me/feed/tracks", { limit });
   }
 
+  // This endpoint ignores `limit` and returns the whole history, so it is trimmed here.
   async getRecentlyPlayed(limit = 50): Promise<PaginatedResponse<SoundCloudTrack>> {
-    return this.page<SoundCloudTrack>("/me/recently-played/tracks", { limit });
+    const page = await this.page<SoundCloudTrack>("/me/recently-played/tracks", { limit });
+    return { ...page, collection: page.collection.slice(0, limit) };
   }
 
   async getPlaylist(playlistId: Id): Promise<SoundCloudPlaylist> {

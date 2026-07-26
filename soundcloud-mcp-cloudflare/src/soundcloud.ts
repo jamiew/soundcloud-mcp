@@ -228,8 +228,10 @@ export class SoundCloudClient {
 	getFeed(limit: number) {
 		return this.page<FeedItem>("/me/feed/tracks", { limit });
 	}
-	getRecentlyPlayed(limit: number) {
-		return this.page<SoundCloudTrack>("/me/recently-played/tracks", { limit });
+	/** This endpoint ignores `limit` and returns the whole history, so it is trimmed here. */
+	async getRecentlyPlayed(limit: number) {
+		const page = await this.page<SoundCloudTrack>("/me/recently-played/tracks", { limit });
+		return { ...page, collection: page.collection.slice(0, limit) };
 	}
 
 	// --- Social writes ---
