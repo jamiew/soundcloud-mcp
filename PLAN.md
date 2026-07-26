@@ -18,11 +18,15 @@ or numeric ids.
 - **stdio:** 37 tools. Verified against the live API — 22/22 checks pass
   (`node scripts/verify.mjs`).
 - **worker:** 32 tools, deployed at <https://soundcloud-mcp.jamie-7e9.workers.dev>.
-  Secrets are set. Verified by curl: discovery doc, 401 on unauthenticated
-  `/mcp`, dynamic client registration, the consent dialog, and the 302 to
-  SoundCloud with correct PKCE + callback — SoundCloud renders its real sign-in
-  page, so the redirect URI is registered. `/` serves an install page. The only
-  unverified leg is the `/callback` return, which needs a human login.
+  Secrets are set. Fully verified end-to-end from a real MCP client (Claude
+  Code): OAuth through `/callback`, then every tool exercised live, including a
+  like/repost/follow round-trip and a create → append → remove → rename → delete
+  playlist round-trip. `/` serves an install page.
+
+  Two bugs that only appeared on the deployed worker, both now fixed: the global
+  `fetch` was stored unbound so every tool call died with "Illegal invocation",
+  and `get_recently_played` ignored `limit` (14 tracks / 49KB for a 1-track ask).
+  Neither was caught by tests, which stub `fetch` and don't hit the live API.
 
 ## TODO
 
