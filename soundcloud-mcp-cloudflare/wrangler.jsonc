@@ -1,0 +1,44 @@
+/**
+ * Wrangler config for the SoundCloud remote MCP server.
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ *
+ * Secrets (set with `npx wrangler secret put <NAME>`):
+ *   SOUNDCLOUD_CLIENT_ID      - your SoundCloud app's Client ID
+ *   SOUNDCLOUD_CLIENT_SECRET  - your SoundCloud app's Client Secret
+ *   COOKIE_ENCRYPTION_KEY     - random string used to sign approval cookies
+ *   ALLOWED_USERS             - optional comma-separated account allowlist
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "soundcloud-mcp",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-03-10",
+	"compatibility_flags": ["nodejs_compat"],
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": ["SoundCloudMCP"]
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "MCP_OBJECT",
+				"class_name": "SoundCloudMCP"
+			}
+		]
+	},
+	"workers_dev": true,
+	"kv_namespaces": [
+		{
+			"binding": "OAUTH_KV",
+			"id": "a83aa5f11ccb44009d83f87731b522ff"
+		}
+	],
+	"observability": {
+		"enabled": true
+	},
+	"dev": {
+		"port": 8789
+	}
+}

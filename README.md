@@ -7,6 +7,10 @@ Runs locally over stdio. Public search works with app credentials alone;
 personal data and writes require a one-time browser login that persists and
 auto-refreshes its token.
 
+There is also a **remote** version for Cloudflare Workers in
+[`soundcloud-mcp-cloudflare/`](soundcloud-mcp-cloudflare/) — same tools, reachable
+as a URL, with browser OAuth per client instead of a local token file.
+
 ## Setup
 
 1. Install dependencies:
@@ -100,12 +104,16 @@ natively via Node's `--env-file-if-exists` (no `dotenv` dependency; needs Node 2
 - **Auth:** `connect_soundcloud`, `auth_status`, `sign_out`
 - **Discovery:** `search_tracks`, `search_playlists`, `search_users`, `get_track`,
   `get_user`, `get_playlist`, `get_related_tracks`, `get_stream_url`, `get_comments`
-- **Library (login):** `get_profile`, `get_likes`, `get_playlists`, `get_recommended_tracks`
+- **Library (login):** `get_profile`, `get_likes`, `get_playlists`
 - **Social (login):** `like_track`, `unlike_track`, `follow_user`, `unfollow_user`, `add_comment`
 - **Playlists (login):** `create_playlist`, `update_playlist`, `add_tracks_to_playlist`,
   `remove_track_from_playlist`, `delete_playlist`
-- **Messaging (login):** `get_conversations`, `get_conversation`, `get_messages`,
-  `send_message`, `start_conversation`, `mark_conversation_read`
+
+Seven tools here are **currently broken**: `get_recommended_tracks` and the six
+messaging tools call endpoints SoundCloud has removed from the public API (they
+return 405). They are still registered but always error — see
+[`PLAN.md`](PLAN.md) for the full audit and the replacement endpoints. The
+Cloudflare version already drops them.
 
 ## Environment variables
 
@@ -145,3 +153,7 @@ credentials from the environment rather than the transport-level OAuth flow
 Unofficial integration, not affiliated with SoundCloud. Use within the
 [SoundCloud API Terms of Use](https://developers.soundcloud.com/docs/api/terms-of-use).
 The legacy `/charts` endpoint is no longer served by the public API and has been removed.
+
+SoundCloud publishes an OpenAPI spec and agent guidance at
+[github.com/soundcloud/api](https://github.com/soundcloud/api) — that spec, not
+these docs, is the source of truth for what the API still serves.

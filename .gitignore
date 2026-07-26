@@ -11,3 +11,6 @@ coverage/
 
 # reference repos cloned for comparison
 tmp/
+
+# symlink to the sibling Spotify worker, kept for reference while porting
+spotify-mcp-cloudflare

@@ -1,0 +1,7 @@
+# Local-dev secrets for `wrangler dev`. Copy to `.dev.vars` and fill in.
+# `.dev.vars` is gitignored. In production use `wrangler secret put` instead.
+SOUNDCLOUD_CLIENT_ID="your-soundcloud-client-id"
+SOUNDCLOUD_CLIENT_SECRET="your-soundcloud-client-secret"
+COOKIE_ENCRYPTION_KEY="run: openssl rand -hex 32"
+# Optional: comma-separated allowlist of SoundCloud usernames or ids. Empty = open to anyone.
+ALLOWED_USERS=""
