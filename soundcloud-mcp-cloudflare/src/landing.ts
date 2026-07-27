@@ -59,6 +59,8 @@ const TOOL_GROUPS: [string, string[]][] = [
 	],
 ];
 
+const TOOL_COUNT = TOOL_GROUPS.reduce((n, [, list]) => n + list.length, 0);
+
 const escapeHtml = (s: string) =>
 	s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -138,6 +140,7 @@ export function landingPage(origin: string): string {
   <p class="lede">
     A remote <a href="https://modelcontextprotocol.io">MCP</a> server that gives an AI assistant
     access to SoundCloud — search and discovery, your likes and playlists, follows and reposts.
+    ${TOOL_COUNT} tools, each verified against the live API.
   </p>
 
   <h2>Endpoint</h2>
@@ -162,7 +165,9 @@ export function landingPage(origin: string): string {
   <div class="groups">${tools}</div>
 
   <footer>
-    <a href="${REPO_URL}">Source on GitHub</a> · Unofficial, not affiliated with SoundCloud ·
+    <a href="${REPO_URL}">Source on GitHub</a> ·
+    <a href="${REPO_URL}/blob/main/CHANGELOG.md">Changelog</a> ·
+    Unofficial, not affiliated with SoundCloud ·
     Used within the
     <a href="https://developers.soundcloud.com/docs/api/terms-of-use">API Terms of Use</a>
   </footer>
