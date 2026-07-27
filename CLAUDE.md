@@ -58,6 +58,32 @@ the tool layer too. Put scratch scripts in `tmp/` (gitignored).
 Never read `.env` directly. `npm start` and `npm run auth` load it natively via
 `--env-file-if-exists`.
 
+**Green unit tests do not mean the deployed worker works.** The tests inject a
+stub `fetch`, so anything that only fails against the real runtime passes them —
+that is exactly how a worker whose every tool call 500'd shipped with 22/22
+green. If the worker is connected as an MCP server in your session, call its
+tools directly; that is the only check that covers the deployed code path.
+Otherwise `pnpm run deploy` from `soundcloud-mcp-cloudflare/` and confirm the
+version id with `npx wrangler deployments list` before testing.
+
+When testing writes against the live account, prefer reversible pairs and undo
+them (like/unlike, follow/unfollow, create/delete playlist). `add_comment` has
+no delete counterpart — comment only on the connected user's own tracks, and say
+so afterwards. `next_page` takes any absolute API URL, which makes it a handy
+escape hatch for trying an endpoint or query param we do not expose yet.
+
+## Staying current with the API
+
+Invoke the **`soundcloud-api-sync`** skill before adding an endpoint, when
+something contradicts the rules above, or when asked what changed upstream. It
+carries the authoritative source list; `PLAN.md` carries the coverage gap table
+and a "synced through" date. Do not answer SoundCloud API questions from memory —
+the spec has moved in both directions, and endpoints have been removed without
+notice.
+
+The official Ruby, Python, and JS SDKs are all unmaintained and out of sync with
+the API. Do not copy patterns from them.
+
 ## Conventions
 
 - Tools carry `title` + behavior annotations, return `structuredContent`

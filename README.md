@@ -155,6 +155,37 @@ OAuth is handled locally per the spec's guidance that stdio servers take
 credentials from the environment rather than the transport-level OAuth flow
 (which is reserved for the future remote HTTP mode).
 
+## Keeping up with the SoundCloud API
+
+SoundCloud ships API changes with no versioning, no deprecation window, and no
+developer newsletter. Endpoints get retired and simply start returning 405 —
+that is how this repo's messaging and recommendation tools died. Two things keep
+that from rotting silently, both worth running every month or so.
+
+**`/soundcloud-api-sync`** — a Claude Code skill that re-derives what is true
+from SoundCloud's own sources. Ask it what changed, whether an endpoint still
+exists, or what we could add next. It knows every official source and the rules
+that keep biting. The mechanical part runs standalone:
+
+```bash
+node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-07-19
+```
+
+It fetches the live OpenAPI spec and prints what we do not implement yet, what
+we call that the spec no longer lists (the dangerous direction), and the API
+release notes since a date. `PLAN.md` tracks the current coverage — 32 of 64
+operations — and the date we last synced through.
+
+**`npm run build && node scripts/verify.mjs`** — drives the built stdio server
+against the live API, exercising every read tool plus a create/read/delete
+playlist round-trip, and cleans up after itself.
+
+Worth subscribing to, no auth needed:
+
+- `https://github.com/soundcloud/api/releases.atom` — the only real changelog
+- `https://github.com/soundcloud/api/commits/master/openapi/api.yaml.atom` —
+  spec edits, which sometimes land before the release note
+
 ## Notes
 
 Unofficial integration, not affiliated with SoundCloud. Use within the
