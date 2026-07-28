@@ -111,6 +111,24 @@ if (seed) {
   }
 }
 
+// Protocol surfaces beyond tools. Templates are read by URI, so this is the only
+// thing that proves they resolve.
+const info = client.getServerVersion();
+check("server metadata", !!(info.title && info.description && info.icons?.length), info.title);
+check("instructions", (client.getInstructions()?.length ?? 0) > 100);
+
+const { resources } = await client.listResources();
+check("list resources", resources.length === 3, resources.map((r) => r.uri).join(", "));
+
+const { resourceTemplates } = await client.listResourceTemplates();
+check("list resource templates", resourceTemplates.length === 3);
+
+if (track?.id) {
+  const read = await client.readResource({ uri: `soundcloud://tracks/${track.id}` });
+  const title = JSON.parse(read.contents[0].text)?.title;
+  check("read track template", !!title, title);
+}
+
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);
 if (failed.length) console.log("failed:", failed.map((f) => f.name).join(", "));
