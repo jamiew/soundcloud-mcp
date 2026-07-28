@@ -147,13 +147,33 @@ Tool registration is decoupled from the stdio transport, so a future remote
 
 ## MCP conventions
 
-Built against the MCP 2025-06-18 spec: tools carry `title` + behavior
-annotations (`readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint`),
-read tools return `structuredContent` alongside text, and track/playlist tools
-emit `resource_link` blocks (permalink, artwork, audio stream) so clients can render them.
+Built against the MCP 2025-11-25 spec. Both servers implement:
+
+- **Tool annotations** — every tool carries `title` plus
+  `readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint`, so a client
+  can tell a search from a delete before calling it. 23 read, 14 write, 4 of
+  those destructive.
+- **Output schemas** — list tools declare the `{ collection, next_href }`
+  envelope, so a client can validate `structuredContent` and discover pagination
+  without reading prose. Kept to the envelope on purpose; see `CLAUDE.md`.
+- **Structured content + resource links** — read tools return
+  `structuredContent` alongside text, and track/playlist tools emit
+  `resource_link` blocks for permalink, artwork, and audio stream.
+- **Resources and resource templates** — `soundcloud://me/{profile,playlists,likes}`
+  as static resources, plus `soundcloud://tracks/{id}`, `users/{id}` and
+  `playlists/{id}` as templates, so a client can attach a track as context
+  without a tool call.
+- **Server discovery metadata** — `title`, `description`, `websiteUrl`, an SVG
+  icon, and `instructions` telling the model to resolve links first, that ids may
+  be URNs, and how to page.
+
+Deliberately skipped: logging, sampling and roots (all deprecated by SEP-2577),
+tasks (experimental), and elicitation — nothing here is long-running or needs a
+mid-call prompt.
+
 OAuth is handled locally per the spec's guidance that stdio servers take
-credentials from the environment rather than the transport-level OAuth flow
-(which is reserved for the future remote HTTP mode).
+credentials from the environment rather than the transport-level OAuth flow. The
+Cloudflare server does use transport-level OAuth.
 
 ## Keeping up with the SoundCloud API
 

@@ -2,6 +2,26 @@
 
 ## 2026-07-27
 
+### MCP 2025-11-25 conventions
+
+- List tools declare an `outputSchema` for the `{ collection, next_href }`
+  envelope, so clients can validate `structuredContent` and discover pagination
+  without reading the description. Built with `z.looseObject` — a plain
+  `z.object` compiles to `additionalProperties: false`, and since the client
+  validates strictly, one undocumented field on `/me/feed/tracks` was enough to
+  fail the call. Unit tests passed throughout; the live run caught it.
+- Both servers advertise `title`, `description`, `websiteUrl`, an SVG icon, and
+  `instructions` that tell the model to resolve pasted links first, that ids may
+  be URNs, and how to page.
+- Resource templates for `soundcloud://{tracks,users,playlists}/{id}`, so a
+  client can attach a track as context without a tool call. The worker also
+  gained the three `soundcloud://me/*` resources it never had.
+- The install page has a favicon and Open Graph tags; the worker serves the mark
+  at `/icon.svg`.
+- Audited the rest of the spec and skipped it deliberately — logging, sampling
+  and roots are deprecated, tasks are experimental, and nothing here needs
+  elicitation. Reasons are in `PLAN.md`.
+
 ### API sync skill documented
 
 - `README.md` advertises the maintenance workflow to human operators: the

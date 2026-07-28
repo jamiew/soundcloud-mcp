@@ -205,6 +205,46 @@ Nothing worth copying architecturally. Nobody else uses URNs, exposes
 `/resolve`, or handles the rotating refresh token correctly — the three things
 most likely to bite. Our tool count (37 stdio / 32 worker, all live) is the largest of the set.
 
+## MCP protocol coverage
+
+Audited against the 2025-11-25 spec on 2026-07-27; SDK is `@modelcontextprotocol/sdk`
+1.29.0, which negotiates 2025-11-25. Both servers now implement everything worth
+implementing for this shape of integration.
+
+| Feature | State |
+|---|---|
+| Tool annotations | All 37 stdio / 34 worker tools. 23 read, 14 write, 4 destructive |
+| `structuredContent` | All read tools |
+| `outputSchema` | 15 list tools — the `{ collection, next_href }` envelope only |
+| `resource_link` blocks | Track, playlist, and stream tools |
+| Resources | `soundcloud://me/{profile,playlists,likes}` (the worker had none before) |
+| Resource templates | `soundcloud://{tracks,users,playlists}/{id}` |
+| Prompts | 3 stdio, 2 worker — `discover_new_music` is still stdio-only |
+| Server metadata | `title`, `description`, `websiteUrl`, SVG icon, `instructions` |
+| Pagination | Cursor-based, via `next_page` |
+
+Skipped, with reasons:
+
+- **Logging, sampling, roots** -- all deprecated by SEP-2577; implementing them
+  now would be building toward removal.
+- **Tasks (SEP-1686)** -- experimental, and nothing here runs long enough. The
+  slowest call is `add_tracks_to_playlist`, a read plus a PUT.
+- **Elicitation** -- no call needs a mid-flight prompt, and client support is
+  uneven. The natural use (confirm before `delete_playlist`) is already covered
+  by `destructiveHint`.
+- **Completions** -- would autocomplete resource-template ids, but there is no
+  endpoint that enumerates track ids, so there is nothing to complete against.
+- **Per-tool icons** -- allowed by SEP-973, but 37 copies of a data URI in every
+  `tools/list` response is a lot of bytes for no signal the annotations don't
+  already carry.
+- **`tools/list_changed`** -- the worker could hide personal tools until OAuth
+  completes, but the OAuth flow gates the whole connection anyway.
+
+The one real gotcha, which cost a live failure: `outputSchema` built from
+`z.object` compiles to `additionalProperties: false` and the client validates
+strictly, so `/me/feed/tracks` returning an undocumented `query_urn` broke the
+call. `z.looseObject` is required. Unit tests pass either way.
+
 ## Gotchas worth remembering
 
 See `CLAUDE.md` for the working rules. The two that cost the most time:

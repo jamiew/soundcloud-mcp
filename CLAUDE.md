@@ -89,6 +89,15 @@ the API. Do not copy patterns from them.
 - Tools carry `title` + behavior annotations, return `structuredContent`
   alongside text, and emit `resource_link` blocks for permalinks, artwork, and
   audio. Keep that up for new tools.
+- **`outputSchema` must use `z.looseObject`, never `z.object`.** A plain object
+  compiles to `additionalProperties: false`, and the *client* validates the
+  result strictly — so the first extra field SoundCloud adds becomes a protocol
+  error the server never sees and no unit test catches. Describe the envelope
+  (`collection`, `next_href`) and stop there; pinning entity fields buys nothing
+  against an API that changes shape without notice. Tools that can return a bare
+  array rather than a collection — `next_page` — get no `outputSchema` at all.
+- Only declare `outputSchema` on tools that always return an object. If a tool
+  can return a plain string, the SDK errors on the missing `structuredContent`.
 - Error text reaching the model should be one short actionable sentence, never a
   raw API body.
 - Biome, tabs in the worker / 2 spaces in `src/`. Run the project's `lint`,
