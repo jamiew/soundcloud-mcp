@@ -56,6 +56,7 @@ export function toUrn(kind: "tracks" | "users" | "playlists", idOrUrn: string | 
 }
 
 type Query = Record<string, string | number | boolean | undefined>;
+type TrackSort = "asc" | "desc";
 
 interface RequestSpec {
 	method?: "GET" | "POST" | "PUT" | "DELETE";
@@ -186,8 +187,8 @@ export class SoundCloudClient {
 			query: { limit },
 		});
 	}
-	getUserTracks(id: string | number, limit: number) {
-		return this.page<SoundCloudTrack>(`/users/${toUrn("users", id)}/tracks`, { limit });
+	getUserTracks(id: string | number, limit: number, sort?: TrackSort) {
+		return this.page<SoundCloudTrack>(`/users/${toUrn("users", id)}/tracks`, { limit, sort });
 	}
 	getUserPlaylists(id: string | number, limit: number) {
 		return this.page<SoundCloudPlaylist>(`/users/${toUrn("users", id)}/playlists`, { limit });
@@ -218,8 +219,8 @@ export class SoundCloudClient {
 	getMyPlaylists(limit: number) {
 		return this.page<SoundCloudPlaylist>("/me/playlists", { limit });
 	}
-	getMyTracks(limit: number) {
-		return this.page<SoundCloudTrack>("/me/tracks", { limit });
+	getMyTracks(limit: number, sort?: TrackSort) {
+		return this.page<SoundCloudTrack>("/me/tracks", { limit, sort });
 	}
 	getMyFollowings(limit: number) {
 		return this.page<SoundCloudUser>("/me/followings", { limit });
