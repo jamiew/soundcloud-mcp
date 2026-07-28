@@ -5,17 +5,27 @@ API audit.
 
 ## Layout
 
-- `src/` — stdio MCP server, pnpm, Node 22+. `pnpm build` before testing;
-  clients run the compiled `build/index.js`, not the TS.
-- `soundcloud-mcp-cloudflare/` — remote MCP server on Cloudflare Workers, pnpm.
-  Run its scripts from inside that directory.
+One package, pnpm, Node 22+. Two servers over one shared core:
 
-The two do not share code yet — a change to a tool usually wants making in
-**both**. `PLAN.md` has the options for deduplicating them.
+- `src/client.ts`, `tools.ts`, `types.ts`, `server.ts`, `icon.ts` — **shared**.
+  Runtime-neutral: no Node APIs, no Workers APIs. A tool change belongs here and
+  lands in both servers at once.
+- `src/index.ts` + `src/stdio/` — the stdio server. `pnpm build` first; clients
+  run the compiled `build/index.js`, not the TS.
+- `src/worker.ts` + `src/worker/` — the Cloudflare Workers server.
 
-Verify stdio changes against the live API with `pnpm build && node scripts/verify.mjs`,
-which exercises every read tool plus a create/read/delete playlist round-trip
-and cleans up after itself.
+Two tsconfigs, because Node and Workers disagree about `fetch`/`Request` even
+though they share source files. `pnpm typecheck` runs both; `tsconfig.build.json`
+must keep excluding the worker paths, since `exclude` replaces rather than
+extends the base.
+
+Relative imports need `.js` extensions everywhere — the Node build is `NodeNext`
+and requires them. Wrangler's bundler resolves them to `.ts` fine.
+
+Verify stdio changes against the live API with `pnpm verify`, which exercises
+every read tool plus a create/read/delete playlist round-trip, checks the
+resources and templates, and cleans up after itself. For the worker, at minimum
+`pnpm exec wrangler deploy --dry-run` proves it still bundles.
 
 ## SoundCloud API rules
 
@@ -59,12 +69,12 @@ Never read `.env` directly. `pnpm start` and `pnpm run auth` load it natively vi
 `--env-file-if-exists`.
 
 **Green unit tests do not mean the deployed worker works.** The tests inject a
-stub `fetch`, so anything that only fails against the real runtime passes them —
-that is exactly how a worker whose every tool call 500'd shipped with 22/22
-green. If the worker is connected as an MCP server in your session, call its
-tools directly; that is the only check that covers the deployed code path.
-Otherwise `pnpm run deploy` from `soundcloud-mcp-cloudflare/` and confirm the
-version id with `npx wrangler deployments list` before testing.
+stub `fetch` and run on Node, not workerd, so anything that only fails against
+the real runtime passes them — that is exactly how a worker whose every tool
+call 500'd shipped with 22/22 green. If the worker is connected as an MCP server
+in your session, call its tools directly; that is the only check that covers the
+deployed code path. Otherwise `pnpm worker:deploy` and confirm the version id
+with `pnpm exec wrangler deployments list` before testing.
 
 When testing writes against the live account, prefer reversible pairs and undo
 them (like/unlike, follow/unfollow, create/delete playlist). `add_comment` has

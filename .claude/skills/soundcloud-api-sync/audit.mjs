@@ -8,7 +8,7 @@ import { argv } from "node:process";
 
 const SPEC_URL = "https://raw.githubusercontent.com/soundcloud/api/master/openapi/api.yaml";
 const RELEASES_URL = "https://api.github.com/repos/soundcloud/api/releases?per_page=20";
-const CLIENTS = ["src/api.ts", "soundcloud-mcp-cloudflare/src/soundcloud.ts"];
+const CLIENTS = ["src/client.ts"];
 
 const since = argv.includes("--since") ? argv[argv.indexOf("--since") + 1] : null;
 

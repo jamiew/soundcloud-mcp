@@ -3,25 +3,27 @@
 An MCP server that gives an assistant access to the SoundCloud API — search and
 discovery, your library, playlist management, and social actions.
 
-Runs locally over stdio. Public search works with app credentials alone;
-personal data and writes require a one-time browser login that persists and
-auto-refreshes its token.
+One package, two ways to run it, sharing the same client, types and tools:
 
-There is also a **remote** version for Cloudflare Workers in
-[`soundcloud-mcp-cloudflare/`](soundcloud-mcp-cloudflare/) — same tools, reachable
-as a URL, with browser OAuth per client instead of a local token file. A live
-instance with install instructions is at
+| | **stdio** (`src/index.ts`) | **worker** (`src/worker.ts`) |
+| --- | --- | --- |
+| Transport | stdio, launched by the client | Streamable HTTP (`/mcp`) + SSE (`/sse`) |
+| Auth | one-time `pnpm run auth`, token in `~/.soundcloud-mcp/` | browser OAuth per client, tokens in a Durable Object |
+| Client setup | absolute path to `build/index.js` | a URL |
+| Public data without login | yes, via client credentials | no — every session is a logged-in user |
+
+A live instance of the worker is at
 <https://soundcloud-mcp.jamie-7e9.workers.dev> (allowlisted; deploy your own).
 
 ## Setup
 
-1. Install dependencies (both packages use pnpm):
+1. Install dependencies:
 
    ```bash
    pnpm install
    ```
 
-2. Create a SoundCloud app at https://soundcloud.com/you/apps and note the
+2. Create a SoundCloud app at <https://soundcloud.com/you/apps> and note the
    **Client ID** and **Client Secret**. Set the app's **Redirect URI** to match
    your `.env` (default `http://localhost:8888/callback`).
 
@@ -103,12 +105,15 @@ natively via Node's `--env-file-if-exists` (no `dotenv` dependency; needs Node 2
 
 ## Tools
 
-- **Auth:** `connect_soundcloud`, `auth_status`, `sign_out`
+Both servers register the same tools, from the same file. The three auth tools
+are stdio-only — the worker authenticates at the transport instead.
+
+- **Auth (stdio only):** `connect_soundcloud`, `auth_status`, `sign_out`
 - **Discovery:** `resolve_url`, `search_tracks`, `search_playlists`, `search_users`,
-  `get_track`, `get_user`, `get_user_tracks`, `get_user_likes`, `get_playlist`,
-  `get_playlist_tracks`, `get_related_tracks`, `get_related_artists`,
+  `get_track`, `get_user`, `get_user_tracks`, `get_user_playlists`, `get_user_likes`,
+  `get_playlist`, `get_playlist_tracks`, `get_related_tracks`, `get_related_artists`,
   `get_stream_url`, `get_comments`, `next_page`
-- **Library (login):** `get_profile`, `get_likes`, `get_playlists`, `get_my_tracks`,
+- **Library (login):** `get_profile`, `get_my_likes`, `get_my_playlists`, `get_my_tracks`,
   `get_my_followings`, `get_feed`, `get_recently_played`
 - **Social (login):** `like_track`, `unlike_track`, `repost_track`, `unrepost_track`,
   `follow_user`, `unfollow_user`, `add_comment`
@@ -125,7 +130,7 @@ what discovery looks like now; see [`PLAN.md`](PLAN.md) for the full audit.
 ## Environment variables
 
 | Variable | Required | Description |
-|---|---|---|
+| --- | --- | --- |
 | `SOUNDCLOUD_CLIENT_ID` | yes | App client ID |
 | `SOUNDCLOUD_CLIENT_SECRET` | yes | App client secret |
 | `SOUNDCLOUD_REDIRECT_URI` | yes | Must match the app's redirect URI exactly (default `http://localhost:8888/callback`) |
@@ -134,16 +139,55 @@ what discovery looks like now; see [`PLAN.md`](PLAN.md) for the full audit.
 
 ## Architecture
 
-- `config.ts` — env + constants
-- `tokenStore.ts` — persists/refreshes user tokens on disk
-- `oauth.ts` — OAuth flows (PKCE auth-code, client-credentials, refresh) + browser login
-- `api.ts` — SoundCloud API client, fed an async token provider
-- `tools.ts` — `registerAll(server, api)`: all tools/prompts/resources, transport-agnostic
-- `index.ts` — stdio entrypoint
-- `auth.ts` — one-time login CLI
+Shared by both servers — nothing here touches Node or Workers APIs:
 
-Tool registration is decoupled from the stdio transport, so a future remote
-(Streamable HTTP) entrypoint can reuse `registerAll` without changes.
+- `client.ts` — SoundCloud API client: URN normalization, cursor pagination,
+  typed errors, transparent 401 refresh-and-retry
+- `tools.ts` — `registerTools(server, client)`: every tool, prompt and resource
+- `types.ts` — the response fields we actually read
+- `server.ts` — MCP identity and instructions
+- `icon.ts` — the one waveform mark
+
+Then a thin entrypoint each:
+
+- `index.ts` + `stdio/` — stdio server. `config.ts` (env), `tokenStore.ts` (token
+  file), `oauth.ts` (PKCE loopback login, client credentials), `authTools.ts`
+  (the three login tools), `auth.ts` (one-time CLI)
+- `worker.ts` + `worker/` — Workers server. `handler.ts` (Hono routes),
+  `oauth.ts` (upstream OAuth + allowlist), `landing.ts` (install page),
+  `workers-oauth-utils.ts` (vendored from Cloudflare's reference, unmodified)
+
+## Remote server (Cloudflare Workers)
+
+```bash
+pnpm worker:dev      # http://localhost:8789, reads .dev.vars
+pnpm worker:deploy
+```
+
+First-time setup: create the KV namespace
+(`pnpm exec wrangler kv namespace create soundcloud-mcp-OAUTH_KV`), then set
+`SOUNDCLOUD_CLIENT_ID`, `SOUNDCLOUD_CLIENT_SECRET`, `COOKIE_ENCRYPTION_KEY`
+(`openssl rand -hex 32`) and optionally `ALLOWED_USERS` with
+`pnpm exec wrangler secret put <NAME>`. Copy `.dev.vars.example` to `.dev.vars`
+for local runs.
+
+**Register the redirect URI** on your SoundCloud app at
+<https://soundcloud.com/you/apps>: `https://<your-worker>.workers.dev/callback`.
+This is the easy step to forget — OAuth fails with a redirect mismatch until it
+matches exactly.
+
+`ALLOWED_USERS` is a comma-separated list of usernames and/or numeric ids. Unset
+means anyone with a SoundCloud account can connect to your worker and spend your
+API quota, so set it unless you mean to run it publicly. It is checked at the
+OAuth callback, before any token is issued, and again when tools are registered.
+
+| Path | Purpose |
+| --- | --- |
+| `/` | install page for humans who land on the URL |
+| `/mcp` | Streamable HTTP transport — what clients connect to |
+| `/sse` | SSE transport, for older clients |
+| `/icon.svg` | the server icon, also the page favicon |
+| `/authorize`, `/callback`, `/token`, `/register` | OAuth |
 
 ## MCP conventions
 

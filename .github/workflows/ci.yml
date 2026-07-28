@@ -1,18 +1,8 @@
-name: cloudflare
+name: ci
 
 on:
   push:
-    paths:
-      - "soundcloud-mcp-cloudflare/**"
-      - ".github/workflows/cloudflare.yml"
   pull_request:
-    paths:
-      - "soundcloud-mcp-cloudflare/**"
-      - ".github/workflows/cloudflare.yml"
-
-defaults:
-  run:
-    working-directory: soundcloud-mcp-cloudflare
 
 jobs:
   check:
@@ -26,12 +16,15 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: soundcloud-mcp-cloudflare/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm lint:md
-      - run: pnpm type-check
+      # Typechecks the Node and Workers halves separately — they have different
+      # global types even though they share source files.
+      - run: pnpm typecheck
       - run: pnpm test
+      # Proves the worker still bundles. Green tests do not — they stub fetch.
+      - run: pnpm exec wrangler deploy --dry-run --outdir /tmp/worker-bundle
 
   deploy:
     needs: [check]
@@ -47,10 +40,8 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: soundcloud-mcp-cloudflare/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: 7e942171573cc4a7cd4238448e646c58
-          workingDirectory: soundcloud-mcp-cloudflare

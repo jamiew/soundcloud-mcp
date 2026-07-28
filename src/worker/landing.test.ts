@@ -1,5 +1,8 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { describe, expect, it } from "vitest";
-import { landingPage } from "./landing.js";
+import type { SoundCloudClient } from "../client.js";
+import { registerTools } from "../tools.js";
+import { landingPage, TOOL_GROUPS } from "./landing.js";
 
 describe("landingPage", () => {
 	const html = landingPage("https://soundcloud-mcp.example.workers.dev");
@@ -25,5 +28,23 @@ describe("landingPage", () => {
 
 	it("escapes the origin rather than interpolating it raw", () => {
 		expect(landingPage('https://x.dev"><script>alert(1)</script>')).not.toContain("<script>");
+	});
+
+	// The list is hand-written, so without this it silently goes stale the next
+	// time a tool is added or renamed.
+	it("lists exactly the tools the worker registers", () => {
+		const registered: string[] = [];
+		const server = new McpServer({ name: "test", version: "0" });
+		const spy = server.registerTool.bind(server);
+		server.registerTool = ((name: string, ...rest: unknown[]) => {
+			registered.push(name);
+			return (spy as (...args: unknown[]) => unknown)(name, ...rest);
+		}) as typeof server.registerTool;
+
+		// Never called — registration only reads the client's shape.
+		registerTools(server, {} as SoundCloudClient);
+
+		const advertised = TOOL_GROUPS.flatMap(([, list]) => list);
+		expect([...advertised].sort()).toEqual([...registered].sort());
 	});
 });

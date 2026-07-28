@@ -2,75 +2,66 @@
 
 Living status doc for `soundcloud-mcp`. Two servers share this repo:
 
-- `src/` — the original **stdio** server (Node 22+), runs locally
-- `soundcloud-mcp-cloudflare/` — the **remote** server on Cloudflare Workers
+- `src/index.ts` + `src/stdio/` — the **stdio** server (Node 22+), runs locally
+- `src/worker.ts` + `src/worker/` — the **remote** server on Cloudflare Workers
 
-Both use pnpm. They are still two separate installs, not a workspace.
+One pnpm package, sharing `client.ts`, `tools.ts`, `types.ts` and `server.ts`.
 
 ## Exec summary
 
-Both servers are updated and in sync on capability. An audit against
-SoundCloud's official OpenAPI spec (July 2026) found that 7 of the stdio
-server's 32 tools called endpoints the public API no longer serves, and that we
-were missing about a dozen endpoints that do exist — including the ones that
-best answer "show me this artist's tracks" and "recommend me something". Both
-servers now drop the dead tools and expose the missing ones, and both take URNs
-or numeric ids.
+The two servers are now one package sharing one client, one type set and one
+tool registration — see "Keeping both in sync" below for what that merge
+uncovered. 35 shared tools, plus 3 stdio-only login tools.
 
-- **stdio:** 37 tools. Verified against the live API — 22/22 checks pass
-  (`node scripts/verify.mjs`).
-- **worker:** 32 tools, deployed at <https://soundcloud-mcp.jamie-7e9.workers.dev>.
-  Secrets are set. Fully verified end-to-end from a real MCP client (Claude
-  Code): OAuth through `/callback`, then every tool exercised live, including a
-  like/repost/follow round-trip and a create → append → remove → rename → delete
-  playlist round-trip. `/` serves an install page.
+- **stdio:** 38 tools. Verified against the live API — 27/27 checks pass
+  (`pnpm verify`), covering every read tool, a create/read/delete playlist
+  round-trip, and the resources and templates.
+- **worker:** 35 tools, deployed at <https://soundcloud-mcp.jamie-7e9.workers.dev>.
+  Secrets are set. Was fully verified end-to-end from a real MCP client before
+  the restructure — OAuth through `/callback`, every tool live, like/repost/
+  follow round-trips, and a create → append → remove → rename → delete playlist
+  round-trip. **Not re-verified since the merge**; it bundles clean
+  (`wrangler deploy --dry-run`) but has not been redeployed.
 
-  Two bugs that only appeared on the deployed worker, both now fixed: the global
-  `fetch` was stored unbound so every tool call died with "Illegal invocation",
-  and `get_recently_played` ignored `limit` (14 tracks / 49KB for a 1-track ask).
-  Neither was caught by tests, which stub `fetch` and don't hit the live API.
+  Three bugs that only appeared on the deployed worker, all fixed: the global
+  `fetch` was stored unbound so every tool call died with "Illegal invocation";
+  `get_recently_played` ignored `limit` (14 tracks / 49KB for a 1-track ask);
+  and a strict `outputSchema` rejected an undocumented field. None was caught by
+  tests, which stub `fetch` and never touch the real runtime.
 
 ## TODO
 
-- [ ] Set the worker secrets (`SOUNDCLOUD_CLIENT_ID`, `SOUNDCLOUD_CLIENT_SECRET`,
-      `COOKIE_ENCRYPTION_KEY`, `ALLOWED_USERS`) — see the worker README
-- [ ] Register `https://soundcloud-mcp.jamie-7e9.workers.dev/callback` as a
-      redirect URI on the SoundCloud app, alongside the localhost one
-- [ ] Verify the end-to-end OAuth flow from a real client
+- [ ] Redeploy and re-verify the worker after the single-package restructure
 - [ ] Confirm the SoundCloud app accepts both redirect URIs; if it is
       one-at-a-time, stdio and remote cannot share an app and one needs its own
 - [ ] Set `DEPLOY_ENABLED` repo variable + `CLOUDFLARE_API_TOKEN` secret to turn
       on CI deploys (the workflow skips green until then)
-- [ ] Decide on deduplicating the two servers — see "Keeping both in sync"
 
-## Keeping both in sync
+## Keeping both in sync — done
 
-Right now `src/api.ts` + `src/tools.ts` and
-`soundcloud-mcp-cloudflare/src/soundcloud.ts` + `tools.ts` are near-duplicates.
-Every API change means the same edit twice, which is exactly how the two drift.
+Resolved 2026-07-28 by option 3: one package, two entrypoints. `client.ts`,
+`tools.ts`, `types.ts`, `server.ts` and `icon.ts` are shared and
+runtime-neutral; `src/stdio/` and `src/worker/` hold only what is genuinely
+specific (token file vs Durable Object, loopback login vs OAuth provider).
 
-The good news: the duplication is nearly all shareable. The client is plain
-`fetch` and the tool definitions are transport-agnostic — both run unmodified on
-Node 22 and on Workers. Only three things are genuinely runtime-specific:
-the token store (disk vs Durable Object), the login flow (loopback HTTP server
-vs OAuth provider), and the entrypoint.
+What the merge turned up, all of it invisible while the code was duplicated:
 
-Options, cheapest first:
+- the same tools had **different names** — `get_likes`/`get_playlists` on stdio
+  against `get_my_likes`/`get_my_playlists` on the worker. The `get_my_*` names
+  won.
+- `types.ts` had drifted apart. stdio declared `avatar_url`, `description` and
+  `tracks` non-null where they are nullable, and still carried the deprecated
+  `stream_url`. The worker's version won.
+- tool descriptions differed, so the model got better guidance from the worker
+  than from stdio for the same tool.
+- stdio's client had no typed errors and no 401 refresh-and-retry; the worker's
+  had both. The worker's won, with a `TokenProvider` adapter over the token file.
+- the worker never registered `get_user_playlists` despite having the client
+  method, and was missing the `discover_new_music` prompt. Both now shared.
 
-1. **Leave it duplicated, keep this doc honest.** Zero work. Fine while both are
-   changing fast; bad once they are stable and drift is silent.
-2. **Shared `core/` directory, two thin entrypoints.** Move the client, types
-   and tool registration into `core/`, have both servers import it. ~1 hour.
-   The tool layer already takes an injected token provider, so this is mostly
-   moving files. Best value.
-3. **One package, two entrypoints.** Collapse to a single `package.json` with
-   `src/stdio.ts` and `src/worker.ts`. Simplest mental model but forces the
-   Workers types onto the Node build. Cheaper than it was now that both packages
-   run on pnpm; a `pnpm-workspace.yaml` would be the intermediate step.
-
-A long-lived branch is the one option worth ruling out: the changes are
-additive to shared files, so it would be a permanent merge conflict.
-Recommendation is 2, once the endpoint churn settles.
+Net: about 1,800 lines deleted. The one thing not shared is login — the three
+auth tools stay in `src/stdio/authTools.ts`, since the worker authenticates at
+the transport.
 
 ## What the API audit found
 
@@ -96,7 +87,7 @@ public API.
 Now exposed by both servers:
 
 | Endpoint | Why it matters |
-|---|---|
+| --- | --- |
 | `GET /resolve` | permalink URL → resource. The natural entry point when someone pastes a link |
 | `GET /users/{urn}/tracks` | an artist's uploads — previously only reachable via keyword search |
 | `GET /users/{urn}/related` | artist-to-artist recommendations |
@@ -114,7 +105,7 @@ Ranked by value per unit of work; the top group is all plain GETs that reuse the
 existing pagination helper.
 
 | Endpoint | Why it matters |
-|---|---|
+| --- | --- |
 | `GET /users/{urn}/web-profiles` | an artist's external links — Bandcamp, Instagram, PayPal. Tiny payload, no equivalent anywhere else. Verified live |
 | `GET /tracks/{urn}/favoriters`, `/tracks/{urn}/reposters`, `/playlists/{urn}/reposters` | who liked/reposted a track — audience discovery and social proof. Verified live |
 | `GET /me/reposts/tracks\|playlists`, `/users/{urn}/reposts/*` | reposts as a taste signal, often better than likes. Shipped 2026-03-24 |
@@ -128,13 +119,13 @@ existing pagination helper.
 | `PUT /tracks/{urn}/storefront` | Artist Storefront. Needs a creator subscription, so untestable on this account |
 | `GET /tracks/{urn}/preview` | 30s preview playback; `/streams` already covers our case |
 
-Two cheap wins that are not new endpoints at all:
+One cheap win that is not a new endpoint at all:
 
 - **`sort=asc\|desc` on `GET /users/{urn}/tracks` and `/me/tracks`** — shipped
   2026-07-19, verified live. One optional param on two existing tools and you can
   ask for an artist's *earliest* work.
-- **`get_user_playlists`** — the worker already has the client method
-  (`getUserPlaylists`) but never registers it as a tool.
+
+(`get_user_playlists` was the other; it is registered now.)
 
 ## Tracking API changes
 
@@ -214,7 +205,7 @@ Audited against the 2025-11-25 spec on 2026-07-27; SDK is `@modelcontextprotocol
 implementing for this shape of integration.
 
 | Feature | State |
-|---|---|
+| --- | --- |
 | Tool annotations | All 37 stdio / 34 worker tools. 23 read, 14 write, 4 destructive |
 | `structuredContent` | All read tools |
 | `outputSchema` | 15 list tools — the `{ collection, next_href }` envelope only |

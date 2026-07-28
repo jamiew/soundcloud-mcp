@@ -1,5 +1,39 @@
 # Changelog
 
+## 2026-07-28
+
+### One package, two servers
+
+`soundcloud-mcp-cloudflare/` is gone. The worker is now `src/worker.ts` +
+`src/worker/` in the same package, and both servers share `client.ts`,
+`tools.ts`, `types.ts`, `server.ts` and `icon.ts`. About 1,800 lines deleted.
+
+Keeping two copies had let them drift in ways nobody could see:
+
+- **The same tools had different names.** stdio registered `get_likes` and
+  `get_playlists`; the worker had `get_my_likes` and `get_my_playlists`. A
+  prompt written against one broke against the other. The `get_my_*` names win,
+  so stdio's two tools are renamed.
+- **`types.ts` disagreed with itself.** stdio declared `avatar_url`,
+  `description` and `tracks` non-null where they are nullable, and still carried
+  the deprecated `stream_url` — the kind of lie that crashes on a private track.
+- **Descriptions differed per tool**, so the model got better guidance from one
+  server than the other for identical functionality.
+- stdio's client had neither typed errors nor 401 refresh-and-retry; the
+  worker's had both, and won.
+- The worker never registered `get_user_playlists` despite having the client
+  method, and lacked the `discover_new_music` prompt. Both are shared now.
+
+Also: one pnpm install, one biome config (tabs), one Node vitest —
+`@cloudflare/vitest-pool-workers` is dropped, since none of the worker's tests
+ever touched a workerd API. Two tsconfigs remain, because Node and Workers
+genuinely disagree about `fetch` and `Request`. CI is one `ci.yml` covering the
+whole repo, and it now bundles the worker (`wrangler deploy --dry-run`), which
+the unit tests cannot do.
+
+The install page's tool list is checked against the real registrations in a
+test, so it can no longer go stale.
+
 ## 2026-07-27
 
 ### MCP 2025-11-25 conventions

@@ -74,5 +74,6 @@ memory — check the spec if something contradicts them.
 2. If an endpoint we call vanished from the spec, verify it live before removing
    anything — the spec has lagged reality in both directions.
 3. Update the coverage table and the "synced through" date in `PLAN.md`.
-4. A tool change usually needs making in **both** servers (`src/` and
-   `soundcloud-mcp-cloudflare/src/`); they do not share code.
+4. Both servers share `src/client.ts` and `src/tools.ts`, so a tool change lands
+   in both at once — but verify each, since only stdio is covered by
+   `pnpm verify`.

@@ -2,7 +2,9 @@
 
 const REPO_URL = "https://github.com/jamiew/soundcloud-mcp";
 
-const TOOL_GROUPS: [string, string[]][] = [
+// Hand-maintained, and checked against the real registrations in landing.test.ts
+// so it cannot drift.
+export const TOOL_GROUPS: [string, string[]][] = [
 	[
 		"Discovery",
 		[
@@ -13,6 +15,7 @@ const TOOL_GROUPS: [string, string[]][] = [
 			"get_track",
 			"get_user",
 			"get_user_tracks",
+			"get_user_playlists",
 			"get_user_likes",
 			"get_playlist",
 			"get_playlist_tracks",
