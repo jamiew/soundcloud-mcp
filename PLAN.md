@@ -17,11 +17,11 @@ uncovered. 35 shared tools, plus 3 stdio-only login tools.
   (`pnpm verify`), covering every read tool, a create/read/delete playlist
   round-trip, and the resources and templates.
 - **worker:** 35 tools, deployed at <https://soundcloud-mcp.jamie-7e9.workers.dev>.
-  Secrets are set. Was fully verified end-to-end from a real MCP client before
-  the restructure — OAuth through `/callback`, every tool live, like/repost/
-  follow round-trips, and a create → append → remove → rename → delete playlist
-  round-trip. **Not re-verified since the merge**; it bundles clean
-  (`wrangler deploy --dry-run`) but has not been redeployed.
+  Secrets are set. Verified end-to-end from a real MCP client — OAuth through
+  `/callback`, every tool live, like/repost/follow round-trips, and a create →
+  append → remove → rename → delete playlist round-trip. Re-verified after the
+  single-package restructure against CI-deployed version `23a93003`.
+  Deploys automatically from `main`.
 
   Three bugs that only appeared on the deployed worker, all fixed: the global
   `fetch` was stored unbound so every tool call died with "Illegal invocation";
@@ -31,11 +31,28 @@ uncovered. 35 shared tools, plus 3 stdio-only login tools.
 
 ## TODO
 
-- [ ] Redeploy and re-verify the worker after the single-package restructure
-- [ ] Confirm the SoundCloud app accepts both redirect URIs; if it is
-      one-at-a-time, stdio and remote cannot share an app and one needs its own
-- [ ] Set `DEPLOY_ENABLED` repo variable + `CLOUDFLARE_API_TOKEN` secret to turn
-      on CI deploys (the workflow skips green until then)
+Open work lives in [issues](https://github.com/jamiew/soundcloud-mcp/issues) now,
+so it is visible from outside this file:
+
+- [#1](https://github.com/jamiew/soundcloud-mcp/issues/1) — making the hosted
+  server publicly usable: the SoundCloud terms, rate limits, and directory gates
+- [#2](https://github.com/jamiew/soundcloud-mcp/issues/2) — expose more of the
+  API; 32 of 64 spec operations unused
+- [#3](https://github.com/jamiew/soundcloud-mcp/issues/3) — `sort=asc|desc` on
+  the user-tracks tools, the cheapest win on the list
+- [#5](https://github.com/jamiew/soundcloud-mcp/issues/5) — project-scoped
+  `.mcp.json` for development
+- [#6](https://github.com/jamiew/soundcloud-mcp/issues/6) — our icon does not
+  render in Claude custom connectors (upstream, nothing to do)
+
+Closed, recorded so it is not rediscovered:
+[#4](https://github.com/jamiew/soundcloud-mcp/issues/4) — `add_comment` has no
+undo, and the API offers no delete endpoint.
+
+Recently finished: the single-package restructure, CI autodeploy
+(`DEPLOY_ENABLED` + `CLOUDFLARE_API_TOKEN` are set and the first run deployed
+`23a93003`), and both redirect URIs confirmed working — stdio via `pnpm verify`
+and the worker via a live tool call.
 
 ## Keeping both in sync — done
 
