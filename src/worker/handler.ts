@@ -55,7 +55,7 @@ async function takePkce(kv: KVNamespace, stateToken: string): Promise<string | n
 async function redirectToSoundCloud(
 	c: { env: Bindings; req: { url: string } },
 	stateToken: string,
-	headers: Record<string, string> = {},
+	headers: Record<string, string> = {}
 ): Promise<Response> {
 	const { codeVerifier, codeChallenge } = await generatePkce();
 	await savePkce(c.env.OAUTH_KV, stateToken, codeVerifier);
@@ -77,14 +77,14 @@ app.get("/", (c) =>
 	c.html(landingPage(new URL(c.req.url).origin), 200, {
 		// Short, so a deploy's changes show up promptly.
 		"Cache-Control": "public, max-age=300",
-	}),
+	})
 );
 
 app.get("/icon.svg", (c) =>
 	c.body(ICON_SVG, 200, {
 		"Content-Type": "image/svg+xml",
 		"Cache-Control": "public, max-age=86400",
-	}),
+	})
 );
 
 app.get("/authorize", async (c) => {
@@ -137,7 +137,7 @@ app.post("/authorize", async (c) => {
 		const approvedClientCookie = await addApprovedClient(
 			c.req.raw,
 			state.oauthReqInfo.clientId,
-			c.env.COOKIE_ENCRYPTION_KEY,
+			c.env.COOKIE_ENCRYPTION_KEY
 		);
 
 		const { stateToken } = await createOAuthState(state.oauthReqInfo, c.env.OAUTH_KV);
@@ -231,7 +231,7 @@ app.get("/callback", async (c) => {
 	if (!isAccountAllowed([me.username, String(me.id)], c.env.ALLOWED_USERS)) {
 		return c.text(
 			"Access denied: this SoundCloud account is not authorized to use this server.",
-			403,
+			403
 		);
 	}
 

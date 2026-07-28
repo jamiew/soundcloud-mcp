@@ -12,7 +12,7 @@ export class OAuthError extends Error {
 	constructor(
 		public code: string,
 		public description: string,
-		public statusCode = 400,
+		public statusCode = 400
 	) {
 		super(description);
 		this.name = "OAuthError";
@@ -27,7 +27,7 @@ export class OAuthError extends Error {
 			{
 				status: this.statusCode,
 				headers: { "Content-Type": "application/json" },
-			},
+			}
 		);
 	}
 }
@@ -147,7 +147,7 @@ export function validateCSRFToken(formData: FormData, request: Request): Validat
 export async function createOAuthState(
 	oauthReqInfo: AuthRequest,
 	kv: KVNamespace,
-	stateTTL = 600,
+	stateTTL = 600
 ): Promise<OAuthStateResult> {
 	const stateToken = crypto.randomUUID();
 
@@ -180,7 +180,7 @@ export async function bindStateToSession(stateToken: string): Promise<BindStateR
  */
 export async function validateOAuthState(
 	request: Request,
-	kv: KVNamespace,
+	kv: KVNamespace
 ): Promise<ValidateStateResult> {
 	const consentedStateCookieName = "__Host-CONSENTED_STATE";
 	const url = new URL(request.url);
@@ -206,7 +206,7 @@ export async function validateOAuthState(
 		throw new OAuthError(
 			"invalid_request",
 			"Missing session binding cookie - authorization flow must be restarted",
-			400,
+			400
 		);
 	}
 
@@ -220,7 +220,7 @@ export async function validateOAuthState(
 		throw new OAuthError(
 			"invalid_request",
 			"State token does not match session - possible CSRF attack detected",
-			400,
+			400
 		);
 	}
 
@@ -244,7 +244,7 @@ export async function validateOAuthState(
 export async function isClientApproved(
 	request: Request,
 	clientId: string,
-	cookieSecret: string,
+	cookieSecret: string
 ): Promise<boolean> {
 	const approvedClients = await getApprovedClientsFromCookie(request, cookieSecret);
 	return approvedClients?.includes(clientId) ?? false;
@@ -256,7 +256,7 @@ export async function isClientApproved(
 export async function addApprovedClient(
 	request: Request,
 	clientId: string,
-	cookieSecret: string,
+	cookieSecret: string
 ): Promise<string> {
 	const approvedClientsCookieName = "__Host-APPROVED_CLIENTS";
 	const THIRTY_DAYS_IN_SECONDS = 2592000;
@@ -610,7 +610,7 @@ export function renderApprovalDialog(request: Request, options: ApprovalDialogOp
 
 async function getApprovedClientsFromCookie(
 	request: Request,
-	cookieSecret: string,
+	cookieSecret: string
 ): Promise<string[] | null> {
 	const approvedClientsCookieName = "__Host-APPROVED_CLIENTS";
 
@@ -661,7 +661,7 @@ async function signData(data: string, secret: string): Promise<string> {
 async function verifySignature(
 	signatureHex: string,
 	data: string,
-	secret: string,
+	secret: string
 ): Promise<boolean> {
 	const key = await importKey(secret);
 	const enc = new TextEncoder();
@@ -685,6 +685,6 @@ async function importKey(secret: string): Promise<CryptoKey> {
 		enc.encode(secret),
 		{ hash: "SHA-256", name: "HMAC" },
 		false,
-		["sign", "verify"],
+		["sign", "verify"]
 	);
 }

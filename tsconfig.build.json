@@ -1,4 +1,6 @@
+// `exclude` replaces rather than extends the base, so the worker paths have to
+// be repeated here or tsc tries to emit Workers code into the Node build.
 {
-  "extends": "./tsconfig.json",
-  "exclude": ["node_modules", "src/**/*.test.ts"]
+	"extends": "./tsconfig.json",
+	"exclude": ["node_modules", "src/**/*.test.ts", "src/worker.ts", "src/worker/**"]
 }

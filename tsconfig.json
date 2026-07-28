@@ -1,21 +1,20 @@
+// The Node/stdio build. The Workers half compiles under tsconfig.worker.json —
+// the two runtimes disagree about `fetch`, `Request` and friends, so they can't
+// share one type environment even though they share source files.
 {
-  "compilerOptions": {
-    "target": "ES2023",
-    "lib": ["ES2023"],
-    "types": ["node"],
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "outDir": "./build",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
-  },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+	"compilerOptions": {
+		"target": "ES2023",
+		"lib": ["ES2023"],
+		"types": ["node"],
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+		"outDir": "./build",
+		"rootDir": "./src",
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true
+	},
+	"include": ["src/**/*"],
+	"exclude": ["node_modules", "src/worker.ts", "src/worker/**"]
 }

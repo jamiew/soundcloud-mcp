@@ -1,13 +1,13 @@
+// The Cloudflare Workers build. Wrangler bundles from `wrangler.jsonc`; this
+// config exists so `pnpm typecheck` covers the worker too.
 {
 	"compilerOptions": {
 		"target": "es2022",
 		"lib": ["es2022"],
 		"module": "es2022",
 		"moduleResolution": "bundler",
-		"types": ["@cloudflare/workers-types/2023-07-01", "@cloudflare/vitest-pool-workers/types"],
+		"types": ["@cloudflare/workers-types/2023-07-01"],
 		"resolveJsonModule": true,
-		"allowJs": true,
-		"checkJs": false,
 		"noEmit": true,
 		"isolatedModules": true,
 		"allowSyntheticDefaultImports": true,
@@ -18,5 +18,5 @@
 		"noFallthroughCasesInSwitch": true,
 		"skipLibCheck": true
 	},
-	"include": ["src/**/*.ts", "worker-configuration.d.ts"]
+	"include": ["src/worker.ts", "src/worker/**/*.ts", "worker-configuration.d.ts"]
 }

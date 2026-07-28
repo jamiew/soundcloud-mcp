@@ -16,7 +16,7 @@ export const API_BASE = "https://api.soundcloud.com";
 export class SoundCloudApiError extends Error {
 	constructor(
 		message: string,
-		public status: number,
+		public status: number
 	) {
 		super(message);
 		this.name = "SoundCloudApiError";
@@ -69,7 +69,7 @@ export class SoundCloudClient {
 		private readonly baseUrl: string = API_BASE,
 		// Must stay bound: Workers throws "Illegal invocation" if the global fetch
 		// is called with anything but the global object as `this`.
-		private readonly fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis),
+		private readonly fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis)
 	) {}
 
 	async request<T>(path: string, spec: RequestSpec = {}): Promise<T> {
@@ -95,7 +95,7 @@ export class SoundCloudClient {
 			if (!response.ok) {
 				throw new SoundCloudApiError(
 					await this.errorMessage(response, spec.method ?? "GET", path),
-					response.status,
+					response.status
 				);
 			}
 
@@ -287,7 +287,7 @@ export class SoundCloudClient {
 			description?: string;
 			sharing?: "public" | "private";
 			trackIds?: (string | number)[];
-		},
+		}
 	) {
 		const playlist: Record<string, unknown> = {};
 		if (updates.title !== undefined) playlist.title = updates.title;

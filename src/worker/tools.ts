@@ -75,7 +75,7 @@ function mapError(error: unknown): ToolResult {
 		}
 		if (error.status === 403) {
 			return toolError(
-				"SoundCloud refused this action. The track or playlist may be private, or the creator disabled it.",
+				"SoundCloud refused this action. The track or playlist may be private, or the creator disabled it."
 			);
 		}
 		if (error.status === 405) {
@@ -89,7 +89,7 @@ function mapError(error: unknown): ToolResult {
 /** Runs a handler, turning results into MCP content and errors into clean text. */
 async function run<T>(
 	fn: () => Promise<T>,
-	extra?: (data: T) => ContentBlock[],
+	extra?: (data: T) => ContentBlock[]
 ): Promise<ToolResult> {
 	try {
 		const data = await fn();
@@ -174,8 +174,8 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 					...(durationFrom !== undefined ? { "duration[from]": durationFrom } : {}),
 					...(durationTo !== undefined ? { "duration[to]": durationTo } : {}),
 					...(access?.length ? { access: access.join(",") } : {}),
-				}),
-			),
+				})
+			)
 	);
 
 	server.registerTool(
@@ -187,7 +187,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Search playlists", ...READ },
 		},
-		async ({ query, limit: max }) => run(() => sc.searchPlaylists(query, max)),
+		async ({ query, limit: max }) => run(() => sc.searchPlaylists(query, max))
 	);
 
 	server.registerTool(
@@ -199,7 +199,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Search users", ...READ },
 		},
-		async ({ query, limit: max }) => run(() => sc.searchUsers(query, max)),
+		async ({ query, limit: max }) => run(() => sc.searchUsers(query, max))
 	);
 
 	server.registerTool(
@@ -211,7 +211,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			inputSchema: { url: z.string().url() },
 			annotations: { title: "Resolve a SoundCloud URL", ...READ },
 		},
-		async ({ url }) => run(() => sc.resolve(url)),
+		async ({ url }) => run(() => sc.resolve(url))
 	);
 
 	server.registerTool(
@@ -222,7 +222,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			inputSchema: { trackId: id },
 			annotations: { title: "Get track", ...READ },
 		},
-		async ({ trackId }) => run(() => sc.getTrack(trackId), trackLinks),
+		async ({ trackId }) => run(() => sc.getTrack(trackId), trackLinks)
 	);
 
 	server.registerTool(
@@ -233,7 +233,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			inputSchema: { userId: id },
 			annotations: { title: "Get user", ...READ },
 		},
-		async ({ userId }) => run(() => sc.getUser(userId)),
+		async ({ userId }) => run(() => sc.getUser(userId))
 	);
 
 	server.registerTool(
@@ -246,7 +246,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's tracks", ...READ },
 		},
-		async ({ userId, limit: max }) => run(() => sc.getUserTracks(userId, max)),
+		async ({ userId, limit: max }) => run(() => sc.getUserTracks(userId, max))
 	);
 
 	server.registerTool(
@@ -258,7 +258,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's likes", ...READ },
 		},
-		async ({ userId, limit: max }) => run(() => sc.getUserLikes(userId, max)),
+		async ({ userId, limit: max }) => run(() => sc.getUserLikes(userId, max))
 	);
 
 	server.registerTool(
@@ -269,7 +269,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			inputSchema: { playlistId: id },
 			annotations: { title: "Get playlist", ...READ },
 		},
-		async ({ playlistId }) => run(() => sc.getPlaylist(playlistId), playlistLinks),
+		async ({ playlistId }) => run(() => sc.getPlaylist(playlistId), playlistLinks)
 	);
 
 	server.registerTool(
@@ -281,7 +281,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get playlist tracks", ...READ },
 		},
-		async ({ playlistId, limit: max }) => run(() => sc.getPlaylistTracks(playlistId, max)),
+		async ({ playlistId, limit: max }) => run(() => sc.getPlaylistTracks(playlistId, max))
 	);
 
 	server.registerTool(
@@ -294,7 +294,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			outputSchema: LIST_OUT,
 			annotations: { title: "Get related tracks", ...READ },
 		},
-		async ({ trackId, limit: max }) => run(() => sc.getRelatedTracks(trackId, max)),
+		async ({ trackId, limit: max }) => run(() => sc.getRelatedTracks(trackId, max))
 	);
 
 	server.registerTool(
@@ -306,7 +306,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			outputSchema: LIST_OUT,
 			annotations: { title: "Get related artists", ...READ },
 		},
-		async ({ userId, limit: max }) => run(() => sc.getRelatedArtists(userId, max)),
+		async ({ userId, limit: max }) => run(() => sc.getRelatedArtists(userId, max))
 	);
 
 	server.registerTool(
@@ -318,7 +318,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			inputSchema: { trackId: id },
 			annotations: { title: "Get stream URL", ...READ },
 		},
-		async ({ trackId }) => run(() => sc.getTrackStreams(trackId), streamLinks),
+		async ({ trackId }) => run(() => sc.getTrackStreams(trackId), streamLinks)
 	);
 
 	server.registerTool(
@@ -330,7 +330,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get track comments", ...READ },
 		},
-		async ({ trackId, limit: max }) => run(() => sc.getComments(trackId, max)),
+		async ({ trackId, limit: max }) => run(() => sc.getComments(trackId, max))
 	);
 
 	server.registerTool(
@@ -342,7 +342,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			inputSchema: { nextHref: z.string().url().describe("The next_href from a previous result") },
 			annotations: { title: "Next page", ...READ },
 		},
-		async ({ nextHref }) => run(() => sc.nextPage(nextHref)),
+		async ({ nextHref }) => run(() => sc.nextPage(nextHref))
 	);
 
 	// --- My library ---
@@ -353,7 +353,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			description: "Get the connected user's SoundCloud profile.",
 			annotations: { title: "Get my profile", ...READ },
 		},
-		async () => run(() => sc.getMe()),
+		async () => run(() => sc.getMe())
 	);
 
 	server.registerTool(
@@ -365,7 +365,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my likes", ...READ },
 		},
-		async ({ limit: max }) => run(() => sc.getMyLikes(max)),
+		async ({ limit: max }) => run(() => sc.getMyLikes(max))
 	);
 
 	server.registerTool(
@@ -377,7 +377,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my playlists", ...READ },
 		},
-		async ({ limit: max }) => run(() => sc.getMyPlaylists(max)),
+		async ({ limit: max }) => run(() => sc.getMyPlaylists(max))
 	);
 
 	server.registerTool(
@@ -389,7 +389,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my uploads", ...READ },
 		},
-		async ({ limit: max }) => run(() => sc.getMyTracks(max)),
+		async ({ limit: max }) => run(() => sc.getMyTracks(max))
 	);
 
 	server.registerTool(
@@ -401,7 +401,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get who I follow", ...READ },
 		},
-		async ({ limit: max }) => run(() => sc.getMyFollowings(max)),
+		async ({ limit: max }) => run(() => sc.getMyFollowings(max))
 	);
 
 	server.registerTool(
@@ -414,7 +414,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my feed", ...READ },
 		},
-		async ({ limit: max }) => run(() => sc.getFeed(max)),
+		async ({ limit: max }) => run(() => sc.getFeed(max))
 	);
 
 	server.registerTool(
@@ -426,7 +426,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get recently played", ...READ },
 		},
-		async ({ limit: max }) => run(() => sc.getRecentlyPlayed(max)),
+		async ({ limit: max }) => run(() => sc.getRecentlyPlayed(max))
 	);
 
 	// --- Social writes ---
@@ -442,7 +442,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			run(async () => {
 				await sc.likeTrack(trackId);
 				return `Liked track ${trackId}.`;
-			}),
+			})
 	);
 
 	server.registerTool(
@@ -457,7 +457,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			run(async () => {
 				await sc.unlikeTrack(trackId);
 				return `Unliked track ${trackId}.`;
-			}),
+			})
 	);
 
 	server.registerTool(
@@ -472,7 +472,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			run(async () => {
 				await sc.repostTrack(trackId);
 				return `Reposted track ${trackId}.`;
-			}),
+			})
 	);
 
 	server.registerTool(
@@ -487,7 +487,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			run(async () => {
 				await sc.unrepostTrack(trackId);
 				return `Removed repost of track ${trackId}.`;
-			}),
+			})
 	);
 
 	server.registerTool(
@@ -502,7 +502,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			run(async () => {
 				await sc.followUser(userId);
 				return `Followed user ${userId}.`;
-			}),
+			})
 	);
 
 	server.registerTool(
@@ -517,7 +517,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			run(async () => {
 				await sc.unfollowUser(userId);
 				return `Unfollowed user ${userId}.`;
-			}),
+			})
 	);
 
 	server.registerTool(
@@ -533,7 +533,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			},
 			annotations: { title: "Add comment", ...WRITE },
 		},
-		async ({ trackId, body, timestamp }) => run(() => sc.addComment(trackId, body, timestamp)),
+		async ({ trackId, body, timestamp }) => run(() => sc.addComment(trackId, body, timestamp))
 	);
 
 	// --- Playlist writes ---
@@ -560,8 +560,8 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 						...(description !== undefined ? { description } : {}),
 						...(trackIds ? { trackIds } : {}),
 					}),
-				playlistLinks,
-			),
+				playlistLinks
+			)
 	);
 
 	server.registerTool(
@@ -580,7 +580,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			annotations: { title: "Update playlist", ...DESTRUCTIVE },
 		},
 		async ({ playlistId, ...updates }) =>
-			run(() => sc.updatePlaylist(playlistId, updates), playlistLinks),
+			run(() => sc.updatePlaylist(playlistId, updates), playlistLinks)
 	);
 
 	server.registerTool(
@@ -592,7 +592,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			annotations: { title: "Add tracks to playlist", ...WRITE },
 		},
 		async ({ playlistId, trackIds }) =>
-			run(() => sc.addTracksToPlaylist(playlistId, trackIds), playlistLinks),
+			run(() => sc.addTracksToPlaylist(playlistId, trackIds), playlistLinks)
 	);
 
 	server.registerTool(
@@ -604,7 +604,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			annotations: { title: "Remove track from playlist", ...DESTRUCTIVE },
 		},
 		async ({ playlistId, trackId }) =>
-			run(() => sc.removeTrackFromPlaylist(playlistId, trackId), playlistLinks),
+			run(() => sc.removeTrackFromPlaylist(playlistId, trackId), playlistLinks)
 	);
 
 	server.registerTool(
@@ -619,7 +619,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			run(async () => {
 				await sc.deletePlaylist(playlistId);
 				return `Deleted playlist ${playlistId}.`;
-			}),
+			})
 	);
 
 	registerPrompts(server, sc);
@@ -641,21 +641,21 @@ function registerResources(server: McpServer, sc: SoundCloudClient): void {
 		"track",
 		new ResourceTemplate("soundcloud://tracks/{id}", { list: undefined }),
 		{ title: "Track", description: "A track by id or URN", mimeType: "application/json" },
-		async (uri, { id }) => json(uri, await sc.getTrack(String(id))),
+		async (uri, { id }) => json(uri, await sc.getTrack(String(id)))
 	);
 
 	server.registerResource(
 		"user",
 		new ResourceTemplate("soundcloud://users/{id}", { list: undefined }),
 		{ title: "User", description: "A user profile by id or URN", mimeType: "application/json" },
-		async (uri, { id }) => json(uri, await sc.getUser(String(id))),
+		async (uri, { id }) => json(uri, await sc.getUser(String(id)))
 	);
 
 	server.registerResource(
 		"playlist",
 		new ResourceTemplate("soundcloud://playlists/{id}", { list: undefined }),
 		{ title: "Playlist", description: "A playlist by id or URN", mimeType: "application/json" },
-		async (uri, { id }) => json(uri, await sc.getPlaylist(String(id))),
+		async (uri, { id }) => json(uri, await sc.getPlaylist(String(id)))
 	);
 
 	server.registerResource(
@@ -666,7 +666,7 @@ function registerResources(server: McpServer, sc: SoundCloudClient): void {
 			description: "The connected user's profile",
 			mimeType: "application/json",
 		},
-		async (uri) => json(uri, await sc.getMe()),
+		async (uri) => json(uri, await sc.getMe())
 	);
 
 	server.registerResource(
@@ -677,7 +677,7 @@ function registerResources(server: McpServer, sc: SoundCloudClient): void {
 			description: "The connected user's playlists",
 			mimeType: "application/json",
 		},
-		async (uri) => json(uri, await sc.getMyPlaylists(50)),
+		async (uri) => json(uri, await sc.getMyPlaylists(50))
 	);
 
 	server.registerResource(
@@ -688,7 +688,7 @@ function registerResources(server: McpServer, sc: SoundCloudClient): void {
 			description: "The connected user's liked tracks",
 			mimeType: "application/json",
 		},
-		async (uri) => json(uri, await sc.getMyLikes(50)),
+		async (uri) => json(uri, await sc.getMyLikes(50))
 	);
 }
 
@@ -712,7 +712,7 @@ function registerPrompts(server: McpServer, sc: SoundCloudClient): void {
 					},
 				],
 			};
-		},
+		}
 	);
 
 	server.registerPrompt(
@@ -738,6 +738,6 @@ function registerPrompts(server: McpServer, sc: SoundCloudClient): void {
 					},
 				],
 			};
-		},
+		}
 	);
 }

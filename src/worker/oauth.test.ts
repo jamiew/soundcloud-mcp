@@ -24,7 +24,7 @@ describe("getAuthorizeUrl", () => {
 				redirectUri: "https://example.com/callback",
 				state: "state-1",
 				codeChallenge: "challenge-1",
-			}),
+			})
 		);
 
 		expect(url.origin).toBe("https://secure.soundcloud.com");

@@ -1,11 +1,11 @@
 import OAuthProvider from "@cloudflare/workers-oauth-provider";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpAgent } from "agents/mcp";
-import { ICON_DATA_URI } from "./icon";
-import { isAccountAllowed, type Props, refreshTokens } from "./oauth";
-import { SoundCloudAuthError, SoundCloudClient } from "./soundcloud";
-import { SoundCloudHandler } from "./soundcloud-handler";
-import { registerTools } from "./tools";
+import { SoundCloudHandler } from "./worker/handler";
+import { ICON_DATA_URI } from "./worker/icon";
+import { isAccountAllowed, type Props, refreshTokens } from "./worker/oauth";
+import { SoundCloudAuthError, SoundCloudClient } from "./worker/soundcloud";
+import { registerTools } from "./worker/tools";
 
 /** Working token state, persisted in the Durable Object. */
 type State = {
@@ -35,7 +35,7 @@ export class SoundCloudMCP extends McpAgent<Env, State, Props> {
 				"- List results carry `next_href`. Pass it to `next_page` to page (default 50 per page, max 200).",
 				"- There is no personalized recommendation endpoint. Seed `get_related_tracks` from something the user already likes, or read `get_feed`.",
 			].join("\n"),
-		},
+		}
 	);
 
 	initialState: State = { accessToken: "", refreshToken: "", expiresAt: 0 };

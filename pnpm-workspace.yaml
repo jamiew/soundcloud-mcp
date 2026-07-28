@@ -1,0 +1,6 @@
+# Not a workspace — this repo is a single package. pnpm 11 reads build-script
+# approvals from here, and wrangler/vitest need theirs to compile.
+allowBuilds:
+  core-js-pure: true
+  esbuild: true
+  workerd: true

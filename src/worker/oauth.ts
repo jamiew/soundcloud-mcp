@@ -102,7 +102,7 @@ export async function exchangeCode(opts: {
 			redirect_uri: opts.redirectUri,
 			code_verifier: opts.codeVerifier,
 			code: opts.code,
-		}),
+		})
 	);
 }
 
@@ -120,7 +120,7 @@ export async function refreshTokens(opts: {
 		}),
 		// Defensive: the spec says refresh tokens rotate, but keep the old one
 		// usable if a response ever omits the replacement.
-		opts.refreshToken,
+		opts.refreshToken
 	);
 }
 
@@ -131,7 +131,7 @@ export async function refreshTokens(opts: {
  */
 export function isAccountAllowed(
 	identifiers: (string | undefined | null)[],
-	allowedRaw: string | undefined | null,
+	allowedRaw: string | undefined | null
 ): boolean {
 	const allow = (allowedRaw ?? "")
 		.split(",")

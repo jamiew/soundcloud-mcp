@@ -10,7 +10,7 @@ describe("landingPage", () => {
 
 	it("gives a copy-pasteable Claude Code install line", () => {
 		expect(html).toContain(
-			"claude mcp add --transport http soundcloud https://soundcloud-mcp.example.workers.dev/mcp",
+			"claude mcp add --transport http soundcloud https://soundcloud-mcp.example.workers.dev/mcp"
 		);
 	});
 

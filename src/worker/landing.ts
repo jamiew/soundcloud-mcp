@@ -75,7 +75,7 @@ export function landingPage(origin: string): string {
 		([name, list]) => `<section class="group">
         <h3>${name} <span class="count">${list.length}</span></h3>
         <ul>${list.map((t) => `<li><code>${t}</code></li>`).join("")}</ul>
-      </section>`,
+      </section>`
 	).join("");
 
 	return `<!doctype html>
