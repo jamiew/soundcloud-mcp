@@ -5,9 +5,9 @@
   "type": "module",
   "main": "build/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node -e \"['index','auth'].forEach(f=>require('fs').chmodSync('build/'+f+'.js','755'))\"",
+    "build": "tsc -p tsconfig.build.json && node -e \"['index','stdio/auth'].forEach(f=>require('fs').chmodSync('build/'+f+'.js','755'))\"",
     "start": "node --env-file-if-exists=.env build/index.js",
-    "auth": "pnpm build && node --env-file-if-exists=.env build/auth.js",
+    "auth": "pnpm build && node --env-file-if-exists=.env build/stdio/auth.js",
     "dev": "tsc -w",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

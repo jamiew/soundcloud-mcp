@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { OAuthToken } from "../types.js";
 import { TOKEN_FILE } from "./config.js";
 import { debug } from "./log.js";
-import type { OAuthToken } from "./types.js";
 
 // Persisted token shape: the raw OAuth response plus when we obtained it,
 // so we can tell whether the access token is still valid.

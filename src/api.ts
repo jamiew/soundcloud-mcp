@@ -1,5 +1,5 @@
-import { API_BASE } from "./config.js";
-import { debug } from "./log.js";
+import { API_BASE } from "./stdio/config.js";
+import { debug } from "./stdio/log.js";
 import type {
   Comment,
   FeedItem,

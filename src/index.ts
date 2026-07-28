@@ -2,9 +2,9 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SoundCloudAPI } from "./api.js";
-import { CLIENT_ID, CLIENT_SECRET } from "./config.js";
-import { logError } from "./log.js";
-import { getApiToken } from "./oauth.js";
+import { CLIENT_ID, CLIENT_SECRET } from "./stdio/config.js";
+import { logError } from "./stdio/log.js";
+import { getApiToken } from "./stdio/oauth.js";
 import { registerAll } from "./tools.js";
 
 if (!CLIENT_ID || !CLIENT_SECRET) {

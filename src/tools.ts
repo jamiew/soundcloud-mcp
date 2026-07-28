@@ -1,7 +1,7 @@
 import { type McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { SoundCloudAPI } from "./api.js";
-import { getValidAccessToken, hasUserToken, loginWithBrowser, signOut } from "./oauth.js";
+import { getValidAccessToken, hasUserToken, loginWithBrowser, signOut } from "./stdio/oauth.js";
 import type { SoundCloudPlaylist, SoundCloudTrack, TrackStreams } from "./types.js";
 
 type ContentBlock =
@@ -160,7 +160,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       run(async () => {
         const token = await getValidAccessToken();
         await signOut(token);
-        const { clearTokens } = await import("./tokenStore.js");
+        const { clearTokens } = await import("./stdio/tokenStore.js");
         clearTokens();
         return "Signed out.";
       })

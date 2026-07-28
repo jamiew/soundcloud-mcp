@@ -2,10 +2,10 @@ import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import http from "node:http";
 import { URL } from "node:url";
+import type { OAuthToken, PKCEChallenge } from "../types.js";
 import { API_BASE, AUTH_BASE, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI } from "./config.js";
 import { debug, logError } from "./log.js";
 import { isExpired, loadTokens, type StoredToken, saveTokens } from "./tokenStore.js";
-import type { OAuthToken, PKCEChallenge } from "./types.js";
 
 export class OAuthError extends Error {}
 
