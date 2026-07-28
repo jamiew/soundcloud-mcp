@@ -1,6 +1,7 @@
 import OAuthProvider from "@cloudflare/workers-oauth-provider";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpAgent } from "agents/mcp";
+import { ICON_DATA_URI } from "./icon";
 import { isAccountAllowed, type Props, refreshTokens } from "./oauth";
 import { SoundCloudAuthError, SoundCloudClient } from "./soundcloud";
 import { SoundCloudHandler } from "./soundcloud-handler";
@@ -15,10 +16,27 @@ type State = {
 };
 
 export class SoundCloudMCP extends McpAgent<Env, State, Props> {
-	server = new McpServer({
-		name: "soundcloud-mcp",
-		version: "0.1.0",
-	});
+	server = new McpServer(
+		{
+			name: "soundcloud-mcp",
+			title: "SoundCloud",
+			version: "0.1.0",
+			description:
+				"Search SoundCloud, read your library, and manage playlists, follows, likes and reposts.",
+			websiteUrl: "https://github.com/jamiew/soundcloud-mcp",
+			icons: [{ src: ICON_DATA_URI, mimeType: "image/svg+xml", sizes: ["any"] }],
+		},
+		{
+			instructions: [
+				"SoundCloud, through the official API. The connected account is already authorized.",
+				"",
+				"- When the user pastes a soundcloud.com link, start with `resolve_url` — it returns the underlying track, user, or playlist.",
+				"- Ids may be numeric or URNs (`soundcloud:tracks:123`). Both work; URNs are what SoundCloud prefers.",
+				"- List results carry `next_href`. Pass it to `next_page` to page (default 50 per page, max 200).",
+				"- There is no personalized recommendation endpoint. Seed `get_related_tracks` from something the user already likes, or read `get_feed`.",
+			].join("\n"),
+		},
+	);
 
 	initialState: State = { accessToken: "", refreshToken: "", expiresAt: 0 };
 

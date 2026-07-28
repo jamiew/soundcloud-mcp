@@ -1,5 +1,6 @@
 import type { AuthRequest, OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import { Hono } from "hono";
+import { ICON_SVG } from "./icon";
 import { landingPage } from "./landing";
 import {
 	exchangeCode,
@@ -76,6 +77,13 @@ app.get("/", (c) =>
 	c.html(landingPage(new URL(c.req.url).origin), 200, {
 		// Short, so a deploy's changes show up promptly.
 		"Cache-Control": "public, max-age=300",
+	}),
+);
+
+app.get("/icon.svg", (c) =>
+	c.body(ICON_SVG, 200, {
+		"Content-Type": "image/svg+xml",
+		"Cache-Control": "public, max-age=86400",
 	}),
 );
 

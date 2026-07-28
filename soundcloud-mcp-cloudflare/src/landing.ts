@@ -61,6 +61,9 @@ const TOOL_GROUPS: [string, string[]][] = [
 
 const TOOL_COUNT = TOOL_GROUPS.reduce((n, [, list]) => n + list.length, 0);
 
+const DESCRIPTION =
+	"A remote MCP server giving AI assistants access to SoundCloud search, your library, and playlists.";
+
 const escapeHtml = (s: string) =>
 	s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -81,7 +84,14 @@ export function landingPage(origin: string): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SoundCloud MCP</title>
-<meta name="description" content="A remote MCP server giving AI assistants access to SoundCloud search, your library, and playlists.">
+<meta name="description" content="${DESCRIPTION}">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="SoundCloud MCP">
+<meta property="og:description" content="${DESCRIPTION}">
+<meta property="og:url" content="${escapeHtml(origin)}">
+<meta property="og:image" content="${escapeHtml(origin)}/icon.svg">
+<meta name="twitter:card" content="summary">
 <style>
   :root {
     --bg: #fff; --fg: #16161a; --muted: #5f6570; --line: #e5e7eb;
