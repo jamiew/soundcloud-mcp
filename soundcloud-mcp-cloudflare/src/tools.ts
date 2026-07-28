@@ -29,6 +29,21 @@ const DESTRUCTIVE = {
 	openWorldHint: true,
 } as const;
 
+// Declared output schemas so clients can validate and render `structuredContent`
+// instead of re-parsing the text block. Only the envelope is described: SoundCloud
+// adds and drops fields without notice, and pinning them buys nothing.
+//
+// `looseObject`, not `object`, is load-bearing. A plain object compiles to
+// `additionalProperties: false`, and the *client* validates strictly — so an extra
+// field SoundCloud tacks on (`query_urn` on the feed) becomes a protocol error the
+// server never sees. Omitted entirely on `next_page`, which doubles as an escape
+// hatch for endpoints returning a bare array rather than a collection.
+const PAGE_OUT = z.looseObject({
+	collection: z.array(z.unknown()).describe("The items on this page"),
+	next_href: z.string().nullish().describe("Absolute URL of the next page — pass to next_page"),
+});
+const LIST_OUT = z.looseObject({ items: z.array(z.unknown()) });
+
 /** Accepts either a numeric id or a `soundcloud:…` URN. */
 const id = z.union([z.string(), z.number()]);
 const limit = z.number().int().min(1).max(200).default(50);
@@ -144,6 +159,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 				durationTo: z.number().optional().describe("Milliseconds"),
 				access: z.array(z.enum(["playable", "preview", "blocked"])).optional(),
 			},
+			outputSchema: PAGE_OUT,
 			annotations: { title: "Search tracks", ...READ },
 		},
 		async ({ query, limit: max, genres, tags, bpmFrom, bpmTo, durationFrom, durationTo, access }) =>
@@ -168,6 +184,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			title: "Search playlists",
 			description: "Search SoundCloud playlists by keyword.",
 			inputSchema: { query: z.string().min(1), limit },
+			outputSchema: PAGE_OUT,
 			annotations: { title: "Search playlists", ...READ },
 		},
 		async ({ query, limit: max }) => run(() => sc.searchPlaylists(query, max)),
@@ -179,6 +196,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			title: "Search users",
 			description: "Search SoundCloud users/artists by keyword.",
 			inputSchema: { query: z.string().min(1), limit },
+			outputSchema: PAGE_OUT,
 			annotations: { title: "Search users", ...READ },
 		},
 		async ({ query, limit: max }) => run(() => sc.searchUsers(query, max)),
@@ -225,6 +243,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			description:
 				"List the tracks a user has uploaded, newest first. Use search_users first to find the user id.",
 			inputSchema: { userId: id, limit },
+			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's tracks", ...READ },
 		},
 		async ({ userId, limit: max }) => run(() => sc.getUserTracks(userId, max)),
@@ -236,6 +255,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			title: "Get an artist's likes",
 			description: "List tracks a user has liked — often a better taste signal than their uploads.",
 			inputSchema: { userId: id, limit },
+			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's likes", ...READ },
 		},
 		async ({ userId, limit: max }) => run(() => sc.getUserLikes(userId, max)),
@@ -258,6 +278,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			title: "Get playlist tracks",
 			description: "Page through a playlist's tracks without refetching the whole playlist.",
 			inputSchema: { playlistId: id, limit },
+			outputSchema: PAGE_OUT,
 			annotations: { title: "Get playlist tracks", ...READ },
 		},
 		async ({ playlistId, limit: max }) => run(() => sc.getPlaylistTracks(playlistId, max)),
@@ -270,6 +291,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			description:
 				"SoundCloud's track-to-track recommendations. This is the main recommendation surface — seed it with a track the user likes.",
 			inputSchema: { trackId: id, limit },
+			outputSchema: LIST_OUT,
 			annotations: { title: "Get related tracks", ...READ },
 		},
 		async ({ trackId, limit: max }) => run(() => sc.getRelatedTracks(trackId, max)),
@@ -281,6 +303,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			title: "Get related artists",
 			description: "SoundCloud's artist-to-artist recommendations for a user.",
 			inputSchema: { userId: id, limit },
+			outputSchema: LIST_OUT,
 			annotations: { title: "Get related artists", ...READ },
 		},
 		async ({ userId, limit: max }) => run(() => sc.getRelatedArtists(userId, max)),
@@ -304,6 +327,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			title: "Get track comments",
 			description: "Get comments on a track, with their timestamps into the audio.",
 			inputSchema: { trackId: id, limit },
+			outputSchema: PAGE_OUT,
 			annotations: { title: "Get track comments", ...READ },
 		},
 		async ({ trackId, limit: max }) => run(() => sc.getComments(trackId, max)),
@@ -338,6 +362,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			title: "Get my likes",
 			description: "List tracks the connected user has liked.",
 			inputSchema: { limit },
+			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my likes", ...READ },
 		},
 		async ({ limit: max }) => run(() => sc.getMyLikes(max)),
@@ -349,6 +374,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			title: "Get my playlists",
 			description: "List the connected user's playlists.",
 			inputSchema: { limit },
+			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my playlists", ...READ },
 		},
 		async ({ limit: max }) => run(() => sc.getMyPlaylists(max)),
@@ -360,6 +386,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			title: "Get my uploads",
 			description: "List tracks the connected user has uploaded.",
 			inputSchema: { limit },
+			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my uploads", ...READ },
 		},
 		async ({ limit: max }) => run(() => sc.getMyTracks(max)),
@@ -371,6 +398,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			title: "Get who I follow",
 			description: "List the users the connected user follows.",
 			inputSchema: { limit },
+			outputSchema: PAGE_OUT,
 			annotations: { title: "Get who I follow", ...READ },
 		},
 		async ({ limit: max }) => run(() => sc.getMyFollowings(max)),
@@ -383,6 +411,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			description:
 				"Recent tracks from people the user follows — the personalized discovery surface.",
 			inputSchema: { limit },
+			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my feed", ...READ },
 		},
 		async ({ limit: max }) => run(() => sc.getFeed(max)),
@@ -394,6 +423,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			title: "Get recently played",
 			description: "Tracks the connected user played recently, most recent first.",
 			inputSchema: { limit },
+			outputSchema: PAGE_OUT,
 			annotations: { title: "Get recently played", ...READ },
 		},
 		async ({ limit: max }) => run(() => sc.getRecentlyPlayed(max)),

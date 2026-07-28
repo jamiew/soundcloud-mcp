@@ -25,6 +25,21 @@ const DESTRUCTIVE = {
   openWorldHint: true,
 } as const;
 
+// Declared output schemas so clients can validate and render `structuredContent`
+// instead of re-parsing the text block. Only the envelope is described: SoundCloud
+// adds and drops fields without notice, and pinning them buys nothing.
+//
+// `looseObject`, not `object`, is load-bearing. A plain object compiles to
+// `additionalProperties: false`, and the *client* validates strictly — so an extra
+// field SoundCloud tacks on (`query_urn` on the feed) becomes a protocol error the
+// server never sees. Omitted entirely on `next_page`, which doubles as an escape
+// hatch for endpoints returning a bare array rather than a collection.
+const PAGE_OUT = z.looseObject({
+  collection: z.array(z.unknown()).describe("The items on this page"),
+  next_href: z.string().nullish().describe("Absolute URL of the next page — pass to next_page"),
+});
+const LIST_OUT = z.looseObject({ items: z.array(z.unknown()) });
+
 /** Accepts either a numeric id or a `soundcloud:…` URN. */
 const id = z.union([z.string(), z.number()]);
 
@@ -180,6 +195,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
         durationTo: z.number().optional(),
         access: z.array(z.enum(["playable", "preview", "blocked"])).optional(),
       },
+      outputSchema: PAGE_OUT,
       annotations: { title: "Search tracks", ...READ },
     },
     async ({ query, limit, ...filters }) => run(() => api.searchTracks(query, limit, filters))
@@ -191,6 +207,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       title: "Search playlists",
       description: "Search for playlists by keyword",
       inputSchema: { query: z.string(), limit: z.number().min(1).max(200).optional() },
+      outputSchema: PAGE_OUT,
       annotations: { title: "Search playlists", ...READ },
     },
     async ({ query, limit }) => run(() => api.searchPlaylists(query, limit))
@@ -202,6 +219,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       title: "Search users",
       description: "Search for users by keyword",
       inputSchema: { query: z.string(), limit: z.number().min(1).max(200).optional() },
+      outputSchema: PAGE_OUT,
       annotations: { title: "Search users", ...READ },
     },
     async ({ query, limit }) => run(() => api.searchUsers(query, limit))
@@ -246,6 +264,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       title: "Get related tracks",
       description: "Get tracks related to a specific track",
       inputSchema: { trackId: id, limit: z.number().min(1).max(200).optional() },
+      outputSchema: LIST_OUT,
       annotations: { title: "Get related tracks", ...READ },
     },
     async ({ trackId, limit }) => run(() => api.getRelatedTracks(trackId, limit))
@@ -257,6 +276,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       title: "Get related artists",
       description: "Get artists related to a user — SoundCloud's artist-to-artist recommendations",
       inputSchema: { userId: id, limit: z.number().min(1).max(200).optional() },
+      outputSchema: LIST_OUT,
       annotations: { title: "Get related artists", ...READ },
     },
     async ({ userId, limit }) => run(() => api.getRelatedArtists(userId, limit))
@@ -268,6 +288,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       title: "Get an artist's tracks",
       description: "List the tracks a user has uploaded, newest first",
       inputSchema: { userId: id, limit: z.number().min(1).max(200).optional() },
+      outputSchema: PAGE_OUT,
       annotations: { title: "Get an artist's tracks", ...READ },
     },
     async ({ userId, limit }) => run(() => api.getUserTracks(userId, limit))
@@ -279,6 +300,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       title: "Get an artist's likes",
       description: "List tracks a user has liked — often a better taste signal than their uploads",
       inputSchema: { userId: id, limit: z.number().min(1).max(200).optional() },
+      outputSchema: PAGE_OUT,
       annotations: { title: "Get an artist's likes", ...READ },
     },
     async ({ userId, limit }) => run(() => api.getUserLikes(userId, limit))
@@ -290,6 +312,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       title: "Get playlist tracks",
       description: "Page through a playlist's tracks without refetching the whole playlist",
       inputSchema: { playlistId: id, limit: z.number().min(1).max(200).optional() },
+      outputSchema: PAGE_OUT,
       annotations: { title: "Get playlist tracks", ...READ },
     },
     async ({ playlistId, limit }) => run(() => api.getPlaylistTracks(playlistId, limit))
@@ -323,6 +346,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       title: "Get track comments",
       description: "Get comments for a track",
       inputSchema: { trackId: id, limit: z.number().min(1).max(200).optional() },
+      outputSchema: PAGE_OUT,
       annotations: { title: "Get track comments", ...READ },
     },
     async ({ trackId, limit }) => run(() => api.getTrackComments(trackId, limit))
@@ -348,6 +372,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
         limit: z.number().min(1).max(200).optional().default(50),
         nextPage: z.string().optional(),
       },
+      outputSchema: PAGE_OUT,
       annotations: { title: "Get my likes", ...READ },
     },
     async ({ limit, nextPage }) => run(() => (nextPage ? api.getNextPage(nextPage) : api.getMyLikes(limit)))
@@ -362,6 +387,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
         limit: z.number().min(1).max(200).optional().default(50),
         nextPage: z.string().optional(),
       },
+      outputSchema: PAGE_OUT,
       annotations: { title: "Get my playlists", ...READ },
     },
     async ({ limit, nextPage }) =>
@@ -374,6 +400,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       title: "Get my uploads",
       description: "Get tracks the logged-in user has uploaded",
       inputSchema: { limit: z.number().min(1).max(200).optional() },
+      outputSchema: PAGE_OUT,
       annotations: { title: "Get my uploads", ...READ },
     },
     async ({ limit }) => run(() => api.getMyTracks(limit))
@@ -385,6 +412,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       title: "Get who I follow",
       description: "Get the users the logged-in user follows",
       inputSchema: { limit: z.number().min(1).max(200).optional() },
+      outputSchema: PAGE_OUT,
       annotations: { title: "Get who I follow", ...READ },
     },
     async ({ limit }) => run(() => api.getMyFollowings(limit))
@@ -397,6 +425,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       description:
         "Recent tracks from people the user follows — the personalized discovery surface, and the nearest thing SoundCloud still offers to recommendations",
       inputSchema: { limit: z.number().min(1).max(200).optional() },
+      outputSchema: PAGE_OUT,
       annotations: { title: "Get my feed", ...READ },
     },
     async ({ limit }) => run(() => api.getFeed(limit))
@@ -408,6 +437,7 @@ export function registerAll(server: McpServer, api: SoundCloudAPI): void {
       title: "Get recently played",
       description: "Tracks the logged-in user played recently, most recent first",
       inputSchema: { limit: z.number().min(1).max(200).optional() },
+      outputSchema: PAGE_OUT,
       annotations: { title: "Get recently played", ...READ },
     },
     async ({ limit }) => run(() => api.getRecentlyPlayed(limit))
