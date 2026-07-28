@@ -44,6 +44,8 @@ so it is visible from outside this file:
   `.mcp.json` for development
 - [#6](https://github.com/jamiew/soundcloud-mcp/issues/6) — our icon does not
   render in Claude custom connectors (upstream, nothing to do)
+- [#8](https://github.com/jamiew/soundcloud-mcp/issues/8) — **bug:** the worker's
+  auth lapses and needs a manual reconnect; suspected stale-props re-seed
 
 Closed, recorded so it is not rediscovered:
 [#4](https://github.com/jamiew/soundcloud-mcp/issues/4) — `add_comment` has no
