@@ -1,46 +1,36 @@
+// Response shapes we actually read. SoundCloud returns far more fields than
+// this; anything not listed here is passed through untouched to the model.
+
 export interface SoundCloudUser {
 	id: number;
 	urn: string;
-	permalink: string;
 	username: string;
-	uri: string;
 	permalink_url: string;
-	avatar_url: string;
-	country: string;
-	full_name: string;
-	description: string;
+	avatar_url: string | null;
+	description: string | null;
+	city?: string | null;
+	country_code?: string | null;
 	followers_count: number;
 	followings_count: number;
-	likes_count: number;
-	playlist_count: number;
 	track_count: number;
+	playlist_count: number;
 }
 
 export interface SoundCloudTrack {
 	id: number;
 	urn: string;
 	title: string;
-	permalink: string;
 	permalink_url: string;
-	uri: string;
-	sharing: string;
-	embeddable_by: string;
-	purchase_url: string | null;
 	artwork_url: string | null;
 	description: string | null;
 	duration: number;
 	genre: string | null;
 	tag_list: string;
-	label_name: string | null;
-	release: string | null;
-	user_id: number;
+	created_at: string;
 	user: SoundCloudUser;
 	playback_count: number;
 	likes_count: number;
 	comment_count: number;
-	downloadable: boolean;
-	download_count: number;
-	stream_url: string;
 	access: "playable" | "preview" | "blocked";
 }
 
@@ -48,55 +38,23 @@ export interface SoundCloudPlaylist {
 	id: number;
 	urn: string;
 	title: string;
-	permalink: string;
 	permalink_url: string;
-	uri: string;
-	sharing: string;
-	embeddable_by: string;
-	purchase_url: string | null;
 	artwork_url: string | null;
 	description: string | null;
 	duration: number;
 	genre: string | null;
-	tag_list: string;
-	label_name: string | null;
-	release: string | null;
-	user_id: number;
+	created_at: string;
 	user: SoundCloudUser;
 	track_count: number;
-	tracks: SoundCloudTrack[];
+	tracks?: SoundCloudTrack[];
 }
 
-export interface SoundCloudLike {
-	created_at: string;
-	track: SoundCloudTrack;
-}
-
-// The /tracks/{id}/streams endpoint returns time-limited playback URLs.
-export interface TrackStreams {
-	http_mp3_128_url?: string;
-	hls_mp3_128_url?: string;
-	hls_opus_64_url?: string;
-	preview_mp3_128_url?: string;
-}
-
-export interface SoundCloudError {
-	code: number;
-	message: string;
-	link?: string;
-	status?: string;
-	errors?: Array<{ error_message: string }>;
-	error?: string | null;
-}
-
-export interface Comment {
+export interface SoundCloudComment {
 	id: number;
 	body: string;
-	timestamp?: number;
-	user_id: number;
-	user: SoundCloudUser;
+	timestamp: number | null;
 	created_at: string;
-	track_id: number;
+	user: SoundCloudUser;
 }
 
 // /me/feed/tracks returns activity wrappers, not bare tracks: each entry has a
@@ -109,24 +67,38 @@ export interface FeedItem {
 	user?: SoundCloudUser;
 }
 
-export interface PaginatedResponse<T> {
-	collection: T[];
-	next_href?: string;
+/** Time-limited playback URLs from /tracks/{urn}/streams. */
+export interface TrackStreams {
+	http_mp3_128_url?: string;
+	hls_mp3_128_url?: string;
+	hls_aac_160_url?: string;
+	preview_mp3_128_url?: string;
 }
 
-// OAuth Types
+/** Cursor-paginated collection (requires linked_partitioning=true). */
+export interface Paginated<T> {
+	collection: T[];
+	next_href?: string | null;
+}
+
+/** SoundCloud's token endpoint response. Refresh tokens are single-use. */
+export interface OAuthTokenResponse {
+	access_token: string;
+	refresh_token?: string;
+	expires_in: number;
+	scope?: string;
+	token_type?: string;
+}
+
+// --- stdio-only: the local OAuth flow ---
+
+/** A token as persisted to disk by the stdio server. */
 export interface OAuthToken {
 	access_token: string;
 	refresh_token: string;
 	expires_in: number;
 	scope: string;
 	token_type: string;
-}
-
-export interface OAuthConfig {
-	clientId: string;
-	clientSecret: string;
-	redirectUri: string;
 }
 
 export interface PKCEChallenge {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generatePkce, getAuthorizeUrl, isAccountAllowed } from "./oauth";
+import { generatePkce, getAuthorizeUrl, isAccountAllowed } from "./oauth.js";
 
 describe("generatePkce", () => {
 	it("produces a base64url verifier and its S256 challenge", async () => {

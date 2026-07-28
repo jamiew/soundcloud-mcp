@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-import { SoundCloudAPI } from "../api.js";
-import { CLIENT_ID, CLIENT_SECRET, TOKEN_FILE } from "./config.js";
 // One-time CLI login: opens a browser, captures the SoundCloud OAuth callback,
 // and stores tokens so the MCP server can use them across sessions.
-import { getValidAccessToken, loginWithBrowser, OAuthError } from "./oauth.js";
+import { SoundCloudClient } from "../client.js";
+import { CLIENT_ID, CLIENT_SECRET, TOKEN_FILE } from "./config.js";
+import { loginWithBrowser, OAuthError, tokenProvider } from "./oauth.js";
 
 async function main() {
 	if (!CLIENT_ID || !CLIENT_SECRET) {
@@ -14,8 +14,7 @@ async function main() {
 	const noBrowser = process.argv.includes("--no-browser");
 	const { token } = await loginWithBrowser({ openBrowser: !noBrowser });
 
-	const api = new SoundCloudAPI(getValidAccessToken);
-	const me = await api.getCurrentUser();
+	const me = await new SoundCloudClient(tokenProvider).getMe();
 
 	console.error(`\nConnected as ${me.username} (id ${me.id}).`);
 	console.error(`Tokens saved to: ${TOKEN_FILE}`);

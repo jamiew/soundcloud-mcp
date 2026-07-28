@@ -2,7 +2,7 @@
 // PKCE is mandatory, and refresh tokens are single-use — every refresh returns
 // a new one that must replace the old.
 
-import type { OAuthTokenResponse } from "./types";
+import type { OAuthTokenResponse } from "../types.js";
 
 // Token + authorize endpoints live on secure.soundcloud.com. SoundCloud's own
 // agent guidance explicitly warns off the legacy api.soundcloud.com/oauth2/token.

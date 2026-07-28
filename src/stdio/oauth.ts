@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import http from "node:http";
 import { URL } from "node:url";
+import type { TokenProvider } from "../client.js";
 import type { OAuthToken, PKCEChallenge } from "../types.js";
 import { API_BASE, AUTH_BASE, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI } from "./config.js";
 import { debug, logError } from "./log.js";
@@ -151,6 +152,21 @@ export async function getApiToken(): Promise<string> {
 	if (hasUserToken()) return getValidAccessToken();
 	return getCachedClientCredentialsToken();
 }
+
+// Adapts the local token file to the shared client's TokenProvider, whose
+// `refreshAccessToken` is called after an unexpected 401 to force a new token.
+export const tokenProvider: TokenProvider = {
+	getAccessToken: getApiToken,
+	async refreshAccessToken() {
+		const tokens = loadTokens();
+		if (tokens?.refresh_token) {
+			const refreshed = await refreshToken(tokens.refresh_token);
+			return refreshed.access_token;
+		}
+		cachedClientToken = null;
+		return getCachedClientCredentialsToken();
+	},
+};
 
 function openBrowser(url: string): void {
 	const cmd =

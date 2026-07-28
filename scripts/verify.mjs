@@ -77,10 +77,10 @@ if (user?.urn) {
 const profile = await call("get_profile");
 check("get_profile", profile.ok, profile.structured?.username);
 
-const likes = await call("get_likes", { limit: 3 });
-check("get_likes", likes.ok, first(likes)?.track?.title ?? first(likes)?.title);
+const likes = await call("get_my_likes", { limit: 3 });
+check("get_my_likes", likes.ok, first(likes)?.track?.title ?? first(likes)?.title);
 
-check("get_playlists", (await call("get_playlists", { limit: 3 })).ok);
+check("get_my_playlists", (await call("get_my_playlists", { limit: 3 })).ok);
 check("get_my_tracks", (await call("get_my_tracks", { limit: 3 })).ok);
 
 const followings = await call("get_my_followings", { limit: 3 });

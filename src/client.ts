@@ -9,7 +9,7 @@ import type {
 	SoundCloudTrack,
 	SoundCloudUser,
 	TrackStreams,
-} from "./types";
+} from "./types.js";
 
 export const API_BASE = "https://api.soundcloud.com";
 

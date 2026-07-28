@@ -1,7 +1,9 @@
 import type { AuthRequest, OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import { Hono } from "hono";
-import { ICON_SVG } from "./icon";
-import { landingPage } from "./landing";
+import { API_BASE } from "../client.js";
+import { ICON_SVG } from "../icon.js";
+import type { SoundCloudUser } from "../types.js";
+import { landingPage } from "./landing.js";
 import {
 	exchangeCode,
 	generatePkce,
@@ -9,9 +11,7 @@ import {
 	isAccountAllowed,
 	type Props,
 	type Tokens,
-} from "./oauth";
-import { API_BASE } from "./soundcloud";
-import type { SoundCloudUser } from "./types";
+} from "./oauth.js";
 import {
 	addApprovedClient,
 	bindStateToSession,
@@ -22,7 +22,7 @@ import {
 	renderApprovalDialog,
 	validateCSRFToken,
 	validateOAuthState,
-} from "./workers-oauth-utils";
+} from "./workers-oauth-utils.js";
 
 type Bindings = Env & { OAUTH_PROVIDER: OAuthHelpers };
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RateLimitedError, SoundCloudAuthError, SoundCloudClient, toUrn } from "./soundcloud";
+import { RateLimitedError, SoundCloudAuthError, SoundCloudClient, toUrn } from "./client.js";
 
 /** A token provider that counts refreshes, so retry behavior is observable. */
 function tokens(initial = "tok-1") {
@@ -129,5 +129,50 @@ describe("SoundCloudClient", () => {
 				tracks: [{ urn: "soundcloud:tracks:2303720966" }],
 			},
 		});
+	});
+
+	// There is no append endpoint, so both of these read the playlist and PUT the
+	// whole tracklist back. Dropping an id here silently deletes someone's tracks.
+	it("appends to a playlist by re-sending the existing ids plus the new ones", async () => {
+		const { impl, calls } = stubFetch([
+			json({ id: 7, tracks: [{ id: 1, urn: "soundcloud:tracks:1" }] }),
+			json({ id: 7 }),
+		]);
+		const client = new SoundCloudClient(tokens().provider, undefined, impl);
+
+		await client.addTracksToPlaylist(7, [2]);
+
+		expect(JSON.parse(String(calls[1]?.init.body)).playlist.tracks).toEqual([
+			{ urn: "soundcloud:tracks:1" },
+			{ urn: "soundcloud:tracks:2" },
+		]);
+	});
+
+	it("removes one track from a playlist and keeps the rest", async () => {
+		const { impl, calls } = stubFetch([
+			json({
+				id: 7,
+				tracks: [
+					{ id: 1, urn: "soundcloud:tracks:1" },
+					{ id: 2, urn: "soundcloud:tracks:2" },
+				],
+			}),
+			json({ id: 7 }),
+		]);
+		const client = new SoundCloudClient(tokens().provider, undefined, impl);
+
+		await client.removeTrackFromPlaylist(7, 1);
+
+		expect(JSON.parse(String(calls[1]?.init.body)).playlist.tracks).toEqual([
+			{ urn: "soundcloud:tracks:2" },
+		]);
+	});
+
+	it("returns undefined for the empty bodies that writes come back with", async () => {
+		const { impl } = stubFetch([new Response(null, { status: 204 }), new Response("")]);
+		const client = new SoundCloudClient(tokens().provider, undefined, impl);
+
+		await expect(client.likeTrack(1)).resolves.toBeUndefined();
+		await expect(client.unlikeTrack(1)).resolves.toBeUndefined();
 	});
 });

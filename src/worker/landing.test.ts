@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { landingPage } from "./landing";
+import { landingPage } from "./landing.js";
 
 describe("landingPage", () => {
 	const html = landingPage("https://soundcloud-mcp.example.workers.dev");
