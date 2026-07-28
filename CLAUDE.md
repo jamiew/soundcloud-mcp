@@ -5,7 +5,7 @@ API audit.
 
 ## Layout
 
-- `src/` — stdio MCP server, npm, Node 22+. `npm run build` before testing;
+- `src/` — stdio MCP server, pnpm, Node 22+. `pnpm build` before testing;
   clients run the compiled `build/index.js`, not the TS.
 - `soundcloud-mcp-cloudflare/` — remote MCP server on Cloudflare Workers, pnpm.
   Run its scripts from inside that directory.
@@ -13,7 +13,7 @@ API audit.
 The two do not share code yet — a change to a tool usually wants making in
 **both**. `PLAN.md` has the options for deduplicating them.
 
-Verify stdio changes against the live API with `npm run build && node scripts/verify.mjs`,
+Verify stdio changes against the live API with `pnpm build && node scripts/verify.mjs`,
 which exercises every read tool plus a create/read/delete playlist round-trip
 and cleans up after itself.
 
@@ -55,7 +55,7 @@ quickest end-to-end check is to drive the built server over stdio with an MCP
 client script — do that rather than curling the API by hand, since it exercises
 the tool layer too. Put scratch scripts in `tmp/` (gitignored).
 
-Never read `.env` directly. `npm start` and `npm run auth` load it natively via
+Never read `.env` directly. `pnpm start` and `pnpm run auth` load it natively via
 `--env-file-if-exists`.
 
 **Green unit tests do not mean the deployed worker works.** The tests inject a

@@ -102,13 +102,15 @@ export async function signOut(accessToken: string): Promise<void> {
 export async function getValidAccessToken(): Promise<string> {
   const tokens = loadTokens();
   if (!tokens) {
-    throw new OAuthError("Not authenticated. Run `npm run auth` (or the connect-soundcloud tool) to log in.");
+    throw new OAuthError(
+      "Not authenticated. Run `pnpm run auth` (or the connect-soundcloud tool) to log in."
+    );
   }
   if (tokens.access_token && !isExpired(tokens)) {
     return tokens.access_token;
   }
   if (!tokens.refresh_token) {
-    throw new OAuthError("Access token expired and no refresh token. Run `npm run auth` to log in again.");
+    throw new OAuthError("Access token expired and no refresh token. Run `pnpm run auth` to log in again.");
   }
   debug("Access token expired; refreshing");
   const refreshed = await refreshToken(tokens.refresh_token);

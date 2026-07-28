@@ -15,10 +15,10 @@ instance with install instructions is at
 
 ## Setup
 
-1. Install dependencies:
+1. Install dependencies (both packages use pnpm):
 
    ```bash
-   npm install
+   pnpm install
    ```
 
 2. Create a SoundCloud app at https://soundcloud.com/you/apps and note the
@@ -34,18 +34,18 @@ instance with install instructions is at
 4. Build:
 
    ```bash
-   npm run build
+   pnpm build
    ```
 
 ## Authenticate (one time, for personal data)
 
 ```bash
-npm run auth
+pnpm run auth
 ```
 
 This opens your browser, captures the OAuth callback automatically, and saves
 tokens to `~/.soundcloud-mcp/tokens.json` (mode 600). The token auto-refreshes,
-so you normally only do this once. Use `npm run auth -- --no-browser` to print the
+so you normally only do this once. Use `pnpm run auth --no-browser` to print the
 URL instead of opening it.
 
 You can also log in from within a client by calling the **`connect_soundcloud`**
@@ -56,12 +56,12 @@ tool, and check state with **`auth_status`**.
 Standalone (uses the local `.env`):
 
 ```bash
-npm start
+pnpm start
 ```
 
 ### Claude Desktop
 
-1. `npm run build` first — Claude Desktop runs the compiled `build/index.js`.
+1. `pnpm build` first — Claude Desktop runs the compiled `build/index.js`.
 2. Open the config file (or **Settings → Developer → Edit Config**):
    - macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
    - Windows: `%APPDATA%\Claude\claude_desktop_config.json`
@@ -91,14 +91,14 @@ Gotchas:
   `node` (nvm/nodenv/asdf). If the server won't start, set `"command"` to the
   absolute node path from `which node` (e.g. `nodenv which node`), such as
   `/Users/you/.nodenv/versions/22.22.0/bin/node`.
-- Run `npm run auth` once in a terminal so personal-data tools and writes work;
+- Run `pnpm run auth` once in a terminal so personal-data tools and writes work;
   public search works without it. Tokens persist to `~/.soundcloud-mcp/tokens.json`
   independent of Claude Desktop, so you don't re-auth per client.
 - Only set `SOUNDCLOUD_REDIRECT_URI` if you changed it from the default; it must
   match your SoundCloud app exactly.
 
 Other MCP clients work the same way: run `node build/index.js` with the two
-credential env vars set. The `npm` scripts additionally load a local `.env`
+credential env vars set. The package scripts additionally load a local `.env`
 natively via Node's `--env-file-if-exists` (no `dotenv` dependency; needs Node 22+).
 
 ## Tools
@@ -196,7 +196,7 @@ we call that the spec no longer lists (the dangerous direction), and the API
 release notes since a date. `PLAN.md` tracks the current coverage — 32 of 64
 operations — and the date we last synced through.
 
-**`npm run build && node scripts/verify.mjs`** — drives the built stdio server
+**`pnpm build && node scripts/verify.mjs`** — drives the built stdio server
 against the live API, exercising every read tool plus a create/read/delete
 playlist round-trip, and cleans up after itself.
 

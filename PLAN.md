@@ -2,8 +2,10 @@
 
 Living status doc for `soundcloud-mcp`. Two servers share this repo:
 
-- `src/` — the original **stdio** server (npm, Node 22+), runs locally
-- `soundcloud-mcp-cloudflare/` — the **remote** server on Cloudflare Workers (pnpm)
+- `src/` — the original **stdio** server (Node 22+), runs locally
+- `soundcloud-mcp-cloudflare/` — the **remote** server on Cloudflare Workers
+
+Both use pnpm. They are still two separate installs, not a workspace.
 
 ## Exec summary
 
@@ -62,9 +64,9 @@ Options, cheapest first:
    The tool layer already takes an injected token provider, so this is mostly
    moving files. Best value.
 3. **One package, two entrypoints.** Collapse to a single `package.json` with
-   `src/stdio.ts` and `src/worker.ts`. Simplest mental model but forces one
-   toolchain (pnpm + Workers types) onto the Node build, which is friction for
-   the npm-published stdio path.
+   `src/stdio.ts` and `src/worker.ts`. Simplest mental model but forces the
+   Workers types onto the Node build. Cheaper than it was now that both packages
+   run on pnpm; a `pnpm-workspace.yaml` would be the intermediate step.
 
 A long-lived branch is the one option worth ruling out: the changes are
 additive to shared files, so it would be a permanent merge conflict.

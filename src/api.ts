@@ -62,7 +62,7 @@ export class SoundCloudAPI {
       }
       // A 401 on a personal endpoint almost always means no user is logged in.
       if (response.status === 401) {
-        message += " — log in with the connect_soundcloud tool (or `npm run auth`) for personal data.";
+        message += " — log in with the connect_soundcloud tool (or `pnpm run auth`) for personal data.";
       }
       throw new Error(message);
     }

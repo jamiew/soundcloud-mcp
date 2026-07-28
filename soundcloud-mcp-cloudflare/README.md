@@ -13,7 +13,7 @@ connect to a URL.
 | | stdio (`../src`) | this worker |
 | --- | --- | --- |
 | Transport | stdio | Streamable HTTP (`/mcp`) + SSE (`/sse`) |
-| Auth | one-time `npm run auth`, tokens in `~/.soundcloud-mcp/` | browser OAuth per client, tokens in a Durable Object |
+| Auth | one-time `pnpm run auth`, tokens in `~/.soundcloud-mcp/` | browser OAuth per client, tokens in a Durable Object |
 | Client setup | absolute path to `build/index.js` | a URL |
 | Public data without login | yes (client-credentials) | no — every session is a logged-in user |
 
