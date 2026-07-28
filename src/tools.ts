@@ -1,4 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { type McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { SoundCloudAPI } from "./api.js";
 import { getValidAccessToken, hasUserToken, loginWithBrowser, signOut } from "./oauth.js";
@@ -699,7 +699,36 @@ function registerPrompts(server: McpServer, api: SoundCloudAPI): void {
   );
 }
 
+// A JSON resource body. Templates are not listable — there is no endpoint that
+// enumerates every track — so `list` is undefined and clients read them by URI.
+function json(uri: URL, data: unknown) {
+  return {
+    contents: [{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(data, null, 2) }],
+  };
+}
+
 function registerResources(server: McpServer, api: SoundCloudAPI): void {
+  server.registerResource(
+    "track",
+    new ResourceTemplate("soundcloud://tracks/{id}", { list: undefined }),
+    { title: "Track", description: "A track by id or URN", mimeType: "application/json" },
+    async (uri, { id }) => json(uri, await api.getTrack(String(id)))
+  );
+
+  server.registerResource(
+    "user",
+    new ResourceTemplate("soundcloud://users/{id}", { list: undefined }),
+    { title: "User", description: "A user profile by id or URN", mimeType: "application/json" },
+    async (uri, { id }) => json(uri, await api.getUser(String(id)))
+  );
+
+  server.registerResource(
+    "playlist",
+    new ResourceTemplate("soundcloud://playlists/{id}", { list: undefined }),
+    { title: "Playlist", description: "A playlist by id or URN", mimeType: "application/json" },
+    async (uri, { id }) => json(uri, await api.getPlaylist(String(id)))
+  );
+
   server.registerResource(
     "my-profile",
     "soundcloud://me/profile",

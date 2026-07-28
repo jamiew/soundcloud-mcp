@@ -1,4 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { type McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
 	RateLimitedError,
@@ -623,6 +623,73 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 	);
 
 	registerPrompts(server, sc);
+	registerResources(server, sc);
+}
+
+// A JSON resource body. Templates are not listable — there is no endpoint that
+// enumerates every track — so `list` is undefined and clients read them by URI.
+function json(uri: URL, data: unknown) {
+	return {
+		contents: [
+			{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(data, null, 2) },
+		],
+	};
+}
+
+function registerResources(server: McpServer, sc: SoundCloudClient): void {
+	server.registerResource(
+		"track",
+		new ResourceTemplate("soundcloud://tracks/{id}", { list: undefined }),
+		{ title: "Track", description: "A track by id or URN", mimeType: "application/json" },
+		async (uri, { id }) => json(uri, await sc.getTrack(String(id))),
+	);
+
+	server.registerResource(
+		"user",
+		new ResourceTemplate("soundcloud://users/{id}", { list: undefined }),
+		{ title: "User", description: "A user profile by id or URN", mimeType: "application/json" },
+		async (uri, { id }) => json(uri, await sc.getUser(String(id))),
+	);
+
+	server.registerResource(
+		"playlist",
+		new ResourceTemplate("soundcloud://playlists/{id}", { list: undefined }),
+		{ title: "Playlist", description: "A playlist by id or URN", mimeType: "application/json" },
+		async (uri, { id }) => json(uri, await sc.getPlaylist(String(id))),
+	);
+
+	server.registerResource(
+		"my-profile",
+		"soundcloud://me/profile",
+		{
+			title: "My profile",
+			description: "The connected user's profile",
+			mimeType: "application/json",
+		},
+		async (uri) => json(uri, await sc.getMe()),
+	);
+
+	server.registerResource(
+		"my-playlists",
+		"soundcloud://me/playlists",
+		{
+			title: "My playlists",
+			description: "The connected user's playlists",
+			mimeType: "application/json",
+		},
+		async (uri) => json(uri, await sc.getMyPlaylists(50)),
+	);
+
+	server.registerResource(
+		"my-likes",
+		"soundcloud://me/likes",
+		{
+			title: "My likes",
+			description: "The connected user's liked tracks",
+			mimeType: "application/json",
+		},
+		async (uri) => json(uri, await sc.getMyLikes(50)),
+	);
 }
 
 function registerPrompts(server: McpServer, sc: SoundCloudClient): void {
