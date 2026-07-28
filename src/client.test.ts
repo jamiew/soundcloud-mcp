@@ -107,6 +107,17 @@ describe("SoundCloudClient", () => {
 		expect(calls[0]?.url).toContain("limit=10");
 	});
 
+	it("passes track sort order for user upload endpoints", async () => {
+		const { impl, calls } = stubFetch([json({ collection: [] }), json({ collection: [] })]);
+		const client = new SoundCloudClient(tokens().provider, undefined, impl);
+
+		await client.getUserTracks(42, 10, "asc");
+		await client.getMyTracks(10, "asc");
+
+		expect(calls[0]?.url).toContain("sort=asc");
+		expect(calls[1]?.url).toContain("sort=asc");
+	});
+
 	it("follows a next_href cursor as an absolute URL", async () => {
 		const { impl, calls } = stubFetch([json({ collection: [] })]);
 		const client = new SoundCloudClient(tokens().provider, undefined, impl);
