@@ -28,12 +28,14 @@ type Bindings = Env & { OAUTH_PROVIDER: OAuthHelpers };
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-const SERVER_INFO = {
+// Our own mark, not SoundCloud's. The API terms forbid using their marks in a
+// way that implies endorsement, and this is an unofficial integration.
+const serverInfo = (origin: string) => ({
 	name: "SoundCloud MCP Server",
 	description:
-		"A remote MCP server that lets an AI assistant search SoundCloud and manage your library, playlists, and follows.",
-	logo: "https://developers.soundcloud.com/assets/logo_big_white-65c2b096da68dd533db18b9f07eabc30.png",
-};
+		"An unofficial MCP server that lets an AI assistant search SoundCloud and manage your library, playlists, and follows. Not affiliated with SoundCloud.",
+	logo: `${origin}/icon.svg`,
+});
 
 // PKCE is mandatory on SoundCloud, so the verifier generated at /authorize has
 // to survive until /callback. It is keyed by the same state token the OAuth
@@ -106,7 +108,7 @@ app.get("/authorize", async (c) => {
 	return renderApprovalDialog(c.req.raw, {
 		client: await c.env.OAUTH_PROVIDER.lookupClient(clientId),
 		csrfToken,
-		server: SERVER_INFO,
+		server: serverInfo(new URL(c.req.url).origin),
 		setCookie,
 		state: { oauthReqInfo },
 	});

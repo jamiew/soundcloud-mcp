@@ -350,7 +350,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Next page",
 			description:
-				"Follow the `next_href` cursor from any paginated result to fetch the next page.",
+				"Follow the `next_href` cursor from any paginated result to fetch the next page. Issues a GET against the SoundCloud API (https://developers.soundcloud.com/docs/api/guide).",
 			inputSchema: { nextHref: z.string().url().describe("The next_href from a previous result") },
 			annotations: { title: "Next page", ...READ },
 		},
