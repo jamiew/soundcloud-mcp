@@ -80,10 +80,16 @@ Pushing to `main` deploys the worker automatically. Confirm the version id with
 concluding anything about what is live. `pnpm exec wrangler deploy --dry-run`
 proves it bundles without deploying, and CI runs that too.
 
-Two things to expect after a deploy, neither of which is a bug you introduced:
-MCP clients cache `tools/list`, so a newly added tool is invisible until the
-client reconnects; and the worker's stored auth sometimes lapses and needs a
-reconnect (see issue #8).
+After a deploy, MCP clients cache `tools/list`, so a newly added tool is
+invisible until the client reconnects. That is not a bug you introduced.
+
+**Only one component may refresh the SoundCloud token.** They are single-use, so
+two refreshers means one spends a token the other still needs and the grant dies
+for good. On the worker that owner is `tokenExchangeCallback` in `worker.ts`,
+because its result is written back to the OAuth grant and therefore reaches
+sessions that do not exist yet. Never refresh inside the Durable Object: it is
+keyed by MCP session id, so it is recreated per session and anything it stores
+is invisible to the next one. That was issue #8.
 
 When testing writes against the live account, prefer reversible pairs and undo
 them (like/unlike, follow/unfollow, create/delete playlist). `add_comment` has

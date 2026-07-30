@@ -44,8 +44,11 @@ so it is visible from outside this file:
   `.mcp.json` for development
 - [#6](https://github.com/jamiew/soundcloud-mcp/issues/6) — our icon does not
   render in Claude custom connectors (upstream, nothing to do)
-- [#8](https://github.com/jamiew/soundcloud-mcp/issues/8) — **bug:** the worker's
-  auth lapses and needs a manual reconnect; suspected stale-props re-seed
+- [#8](https://github.com/jamiew/soundcloud-mcp/issues/8) — the worker's auth
+  died after the first session. Fixed and deployed; open until it survives a
+  real token expiry. The Durable Object is keyed per MCP session, so it kept
+  re-seeding from a single-use refresh token the previous session had spent.
+  The OAuth grant owns refreshes now
 
 Closed, recorded so it is not rediscovered:
 [#4](https://github.com/jamiew/soundcloud-mcp/issues/4) — `add_comment` has no

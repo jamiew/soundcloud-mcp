@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-07-30
+
+### Worker auth no longer dies after the first session
+
+The remote server would work once, then fail every later session with
+"authorization has lapsed" until you reconnected — and then do it again.
+
+`agents/mcp` keys the Durable Object by MCP session id, and that id is new on
+every `initialize`. So each session got a fresh DO with empty state, which
+seeded its tokens from the OAuth props — the refresh token captured at
+authorization time. SoundCloud's refresh tokens are single-use, so the first
+session spent it and every session after seeded from a dead one. The DO was
+never the right owner: it is per-session by construction, so nothing it stores
+reaches the next session.
+
+The OAuth grant owns refreshes now. `tokenExchangeCallback` does the SoundCloud
+refresh and hands back `newProps`, which the provider writes to the grant, so
+sessions that don't exist yet still see the rotated token. Our access token
+expires with SoundCloud's, so the client comes back at the right moment. The
+agent keeps no token state at all.
+
 ## 2026-07-28
 
 ### Autodeploy

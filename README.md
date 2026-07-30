@@ -186,10 +186,8 @@ OAuth callback, before any token is issued, and again when tools are registered.
 Opening it up more widely runs into SoundCloud's terms and a shared rate limit —
 see [#1](https://github.com/jamiew/soundcloud-mcp/issues/1).
 
-Two things to expect after a deploy: MCP clients cache the tool list, so a new
-tool only shows up once the client reconnects; and the connection can come back
-as "authorization has lapsed", which reconnecting fixes
-([#8](https://github.com/jamiew/soundcloud-mcp/issues/8)).
+After a deploy, MCP clients cache the tool list, so a new tool only shows up
+once the client reconnects.
 
 | Path | Purpose |
 | --- | --- |
