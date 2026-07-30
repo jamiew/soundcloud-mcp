@@ -161,8 +161,11 @@ Then a thin entrypoint each:
 
 ```bash
 pnpm worker:dev      # http://localhost:8789, reads .dev.vars
-pnpm worker:deploy
+pnpm worker:deploy   # or just push to main
 ```
+
+Pushing to `main` deploys automatically once `DEPLOY_ENABLED` is set as a repo
+variable and `CLOUDFLARE_API_TOKEN` as a secret; until then the job skips green.
 
 First-time setup: create the KV namespace
 (`pnpm exec wrangler kv namespace create soundcloud-mcp-OAUTH_KV`), then set
@@ -180,6 +183,13 @@ matches exactly.
 means anyone with a SoundCloud account can connect to your worker and spend your
 API quota, so set it unless you mean to run it publicly. It is checked at the
 OAuth callback, before any token is issued, and again when tools are registered.
+Opening it up more widely runs into SoundCloud's terms and a shared rate limit —
+see [#1](https://github.com/jamiew/soundcloud-mcp/issues/1).
+
+Two things to expect after a deploy: MCP clients cache the tool list, so a new
+tool only shows up once the client reconnects; and the connection can come back
+as "authorization has lapsed", which reconnecting fixes
+([#8](https://github.com/jamiew/soundcloud-mcp/issues/8)).
 
 | Path | Purpose |
 | --- | --- |

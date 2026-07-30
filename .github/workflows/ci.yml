@@ -29,6 +29,10 @@ jobs:
   deploy:
     needs: [check]
     # Skips (green, not red) until DEPLOY_ENABLED is set as a repo variable.
+    #
+    # Deliberately unfiltered by path: a docs-only push redeploys an identical
+    # bundle, which costs nothing, whereas a path filter that misreads a code
+    # change as docs silently fails to deploy. Prefer the harmless direction.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
     steps:

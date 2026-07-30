@@ -73,8 +73,17 @@ stub `fetch` and run on Node, not workerd, so anything that only fails against
 the real runtime passes them — that is exactly how a worker whose every tool
 call 500'd shipped with 22/22 green. If the worker is connected as an MCP server
 in your session, call its tools directly; that is the only check that covers the
-deployed code path. Otherwise `pnpm worker:deploy` and confirm the version id
-with `pnpm exec wrangler deployments list` before testing.
+deployed code path.
+
+Pushing to `main` deploys the worker automatically. Confirm the version id with
+`pnpm exec wrangler deployments list` and match it against the CI log before
+concluding anything about what is live. `pnpm exec wrangler deploy --dry-run`
+proves it bundles without deploying, and CI runs that too.
+
+Two things to expect after a deploy, neither of which is a bug you introduced:
+MCP clients cache `tools/list`, so a newly added tool is invisible until the
+client reconnects; and the worker's stored auth sometimes lapses and needs a
+reconnect (see issue #8).
 
 When testing writes against the live account, prefer reversible pairs and undo
 them (like/unlike, follow/unfollow, create/delete playlist). `add_comment` has

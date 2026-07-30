@@ -2,6 +2,35 @@
 
 ## 2026-07-28
 
+### Autodeploy
+
+- Pushing to `main` now deploys the worker. Verified end to end: CI green,
+  version `23a93003` live, and a real tool call against the deployed server.
+- Deliberately not filtered by path — a docs-only push redeploys an identical
+  bundle for free, while a filter that misreads a code change as docs silently
+  fails to deploy.
+
+### Branding and terms
+
+- The OAuth consent screen was hotlinking SoundCloud's own logo, which their API
+  terms forbid where it implies endorsement. It serves our mark now and says
+  "unofficial".
+- `next_page` takes a freeform URL, so its description names the target API —
+  Anthropic's directory review rejects freeform-path tools that don't.
+
+### Open work moved to issues
+
+`PLAN.md`'s TODO list is now [GitHub issues](https://github.com/jamiew/soundcloud-mcp/issues),
+linked from the doc. Notable: publishing the server publicly runs into
+SoundCloud's terms, a per-`client_id` rate limit and two Claude directory gates
+([#1](https://github.com/jamiew/soundcloud-mcp/issues/1)); the worker's auth
+lapses and needs a manual reconnect
+([#8](https://github.com/jamiew/soundcloud-mcp/issues/8)).
+
+Our `icons` metadata is correct but Claude does not render it for custom
+connectors yet — that is upstream
+([#6](https://github.com/jamiew/soundcloud-mcp/issues/6)).
+
 ### One package, two servers
 
 `soundcloud-mcp-cloudflare/` is gone. The worker is now `src/worker.ts` +
