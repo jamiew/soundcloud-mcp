@@ -1,7 +1,7 @@
 import type { AuthRequest, OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import { Hono } from "hono";
 import { API_BASE } from "../client.js";
-import { ICON_SVG } from "../icon.js";
+import { ICON_PNG, ICON_SVG } from "../icon.js";
 import type { SoundCloudUser } from "../types.js";
 import { landingPage } from "./landing.js";
 import {
@@ -88,6 +88,16 @@ app.get("/icon.svg", (c) =>
 		"Cache-Control": "public, max-age=86400",
 	})
 );
+
+// PNG bytes at both paths, never a redirect. Connector UIs fetch `/favicon.ico`
+// directly, and many will not follow a redirect or accept an SVG.
+for (const path of ["/icon.png", "/favicon.ico"]) {
+	app.get(path, () => {
+		return new Response(ICON_PNG, {
+			headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" },
+		});
+	});
+}
 
 app.get("/authorize", async (c) => {
 	const oauthReqInfo = await c.env.OAUTH_PROVIDER.parseAuthRequest(c.req.raw);

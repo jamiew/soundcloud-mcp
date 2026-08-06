@@ -1,9 +1,9 @@
 // MCP server identity, shared by both entrypoints. The two differ only in how
 // they authenticate, so that is the one line each supplies for itself.
 
-import { ICON_DATA_URI } from "./icon.js";
+import { INLINE_ICON } from "./icon.js";
 
-export function serverInfo(name: string, version: string) {
+export function serverInfo(name: string, version: string, icons = [INLINE_ICON]) {
 	return {
 		name,
 		version,
@@ -11,7 +11,7 @@ export function serverInfo(name: string, version: string) {
 		description:
 			"Search SoundCloud, read your library, and manage playlists, follows, likes and reposts.",
 		websiteUrl: "https://github.com/jamiew/soundcloud-mcp",
-		icons: [{ src: ICON_DATA_URI, mimeType: "image/svg+xml", sizes: ["any"] }],
+		icons,
 	};
 }
 

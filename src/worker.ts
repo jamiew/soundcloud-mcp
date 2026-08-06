@@ -3,6 +3,7 @@ import OAuthProvider from "@cloudflare/workers-oauth-provider";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { McpAgent } from "agents/mcp";
 import { SoundCloudAuthError, SoundCloudClient } from "./client.js";
+import { HOSTED_ICON } from "./icon.js";
 import { instructions, serverInfo } from "./server.js";
 import { registerTools } from "./tools.js";
 import { SoundCloudHandler } from "./worker/handler.js";
@@ -12,7 +13,7 @@ import { isAccountAllowed, type Props, refreshTokens } from "./worker/oauth.js";
 // The Durable Object is keyed by MCP session id, so it is created fresh for every
 // new session — anything it stored would be invisible to the next one.
 export class SoundCloudMCP extends McpAgent<Env, never, Props> {
-	server = new McpServer(serverInfo("soundcloud-mcp", "0.1.0"), {
+	server = new McpServer(serverInfo("soundcloud-mcp", "0.1.0", [HOSTED_ICON]), {
 		instructions: instructions(
 			"- The connected account is already authorized; there is no login step."
 		),
