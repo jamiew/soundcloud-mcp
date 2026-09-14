@@ -47,6 +47,7 @@ const LIST_OUT = z.looseObject({ items: z.array(z.unknown()) });
 /** Accepts either a numeric id or a `soundcloud:…` URN. */
 const id = z.union([z.string(), z.number()]);
 const limit = z.number().int().min(1).max(200).default(50);
+const trackSort = z.enum(["asc", "desc"]).optional();
 
 function ok(data: unknown, extra: ContentBlock[] = []): ToolResult {
 	const text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
@@ -241,12 +242,12 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Get an artist's tracks",
 			description:
-				"List the tracks a user has uploaded, newest first. Use search_users first to find the user id.",
-			inputSchema: { userId: id, limit },
+				"List the tracks a user has uploaded. Use search_users first to find the user id. Pass sort='asc' for earliest first or sort='desc' for newest first.",
+			inputSchema: { userId: id, limit, sort: trackSort },
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's tracks", ...READ },
 		},
-		async ({ userId, limit: max }) => run(() => sc.getUserTracks(userId, max))
+		async ({ userId, limit: max, sort }) => run(() => sc.getUserTracks(userId, max, sort))
 	);
 
 	server.registerTool(
@@ -396,12 +397,13 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"get_my_tracks",
 		{
 			title: "Get my uploads",
-			description: "List tracks the connected user has uploaded.",
-			inputSchema: { limit },
+			description:
+				"List tracks the connected user has uploaded. Pass sort='asc' for earliest first or sort='desc' for newest first.",
+			inputSchema: { limit, sort: trackSort },
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my uploads", ...READ },
 		},
-		async ({ limit: max }) => run(() => sc.getMyTracks(max))
+		async ({ limit: max, sort }) => run(() => sc.getMyTracks(max, sort))
 	);
 
 	server.registerTool(
