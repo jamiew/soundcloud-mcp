@@ -28,18 +28,15 @@ type Bindings = Env & { OAUTH_PROVIDER: OAuthHelpers };
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-// Our own mark, not SoundCloud's. The API terms forbid using their marks in a
-// way that implies endorsement, and this is an unofficial integration.
+// Use our own logo to avoid implying SoundCloud endorsement.
 const serverInfo = (origin: string) => ({
 	name: "SoundCloud MCP Server",
 	description:
-		"An unofficial MCP server that lets an AI assistant search SoundCloud and manage your library, playlists, and follows. Not affiliated with SoundCloud.",
+		"Search SoundCloud and manage your library. Unofficial; not affiliated with SoundCloud.",
 	logo: `${origin}/icon.svg`,
 });
 
-// PKCE is mandatory on SoundCloud, so the verifier generated at /authorize has
-// to survive until /callback. It is keyed by the same state token the OAuth
-// state is stored under, and expires with it.
+// Keep the mandatory PKCE verifier in KV until the OAuth callback.
 const PKCE_TTL_SECONDS = 600;
 
 async function savePkce(kv: KVNamespace, stateToken: string, verifier: string): Promise<void> {
@@ -165,8 +162,7 @@ app.post("/authorize", async (c) => {
 		if (error instanceof OAuthError) {
 			return error.toResponse();
 		}
-		const message = error instanceof Error ? error.message : String(error);
-		return c.text(`Internal server error: ${message}`, 500);
+		return c.text("Authorization failed. Start the connection again.", 500);
 	}
 });
 
@@ -197,7 +193,7 @@ app.get("/callback", async (c) => {
 
 	const upstreamError = c.req.query("error");
 	if (upstreamError) {
-		return c.text(`SoundCloud authorization failed: ${upstreamError}`, 400);
+		return c.text("SoundCloud authorization failed. Start the connection again.", 400);
 	}
 
 	const code = c.req.query("code");
@@ -207,7 +203,7 @@ app.get("/callback", async (c) => {
 
 	const codeVerifier = await takePkce(c.env.OAUTH_KV, stateToken);
 	if (!codeVerifier) {
-		return c.text("Login session expired — start the connection again.", 400);
+		return c.text("Login session expired. Start the connection again.", 400);
 	}
 
 	let tokens: Tokens;
@@ -221,8 +217,7 @@ app.get("/callback", async (c) => {
 		});
 	} catch (error) {
 		console.error("Token exchange error:", error);
-		const message = error instanceof Error ? error.message : String(error);
-		return c.text(`Token exchange failed: ${message}`, 500);
+		return c.text("SoundCloud token exchange failed. Start the connection again.", 500);
 	}
 
 	const meResp = await fetch(`${API_BASE}/me`, {
@@ -232,7 +227,7 @@ app.get("/callback", async (c) => {
 		},
 	});
 	if (!meResp.ok) {
-		return c.text(`Failed to fetch SoundCloud profile: ${await meResp.text()}`, 500);
+		return c.text("Could not load your SoundCloud profile. Start the connection again.", 500);
 	}
 	const me = (await meResp.json()) as SoundCloudUser;
 	if (!me?.id) {

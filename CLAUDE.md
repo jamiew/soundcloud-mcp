@@ -1,129 +1,94 @@
-# CLAUDE.md
+# Agent guide
 
-Working notes for agents in this repo. See `PLAN.md` for status and the full
-API audit.
+See `README.md` for setup and `PLAN.md` for open work and the dated API audit.
 
 ## Layout
 
-One package, pnpm, Node 22+. Two servers over one shared core:
+One pnpm package supports Node 22.18+ or 24.11+ LTS. Use `package.json` for exact
+engine and dependency versions.
 
-- `src/client.ts`, `tools.ts`, `types.ts`, `server.ts`, `icon.ts` — **shared**.
-  Runtime-neutral: no Node APIs, no Workers APIs. A tool change belongs here and
-  lands in both servers at once.
-- `src/index.ts` + `src/stdio/` — the stdio server. `pnpm build` first; clients
-  run the compiled `build/index.js`, not the TS.
-- `src/worker.ts` + `src/worker/` — the Cloudflare Workers server.
+- Shared: `src/{client,tools,types,server,icon}.ts`. Keep this code runtime-neutral:
+  no Node or Workers APIs. Put tool changes here so both servers receive them.
+- Local: `src/index.ts` and `src/stdio/`. Build first; clients run
+  `build/index.js`, not TypeScript.
+- Remote: `src/worker.ts` and `src/worker/`.
 
-Two tsconfigs, because Node and Workers disagree about `fetch`/`Request` even
-though they share source files. `pnpm typecheck` runs both; `tsconfig.build.json`
-must keep excluding the worker paths, since `exclude` replaces rather than
-extends the base.
+Node and Workers need separate typechecks because their `fetch` and `Request`
+types differ. `pnpm typecheck` runs both. Keep worker paths excluded from
+`tsconfig.build.json`: `exclude` replaces the base value rather than extending it.
+Relative imports need `.js` extensions for NodeNext; Wrangler resolves them to TS.
+Keep global `fetch` bound to `globalThis` for Workers.
 
-Relative imports need `.js` extensions everywhere — the Node build is `NodeNext`
-and requires them. Wrangler's bundler resolves them to `.ts` fine.
+## API rules
 
-Verify stdio changes against the live API with `pnpm verify`, which exercises
-every read tool plus a create/read/delete playlist round-trip, checks the
-resources and templates, and cleans up after itself. For the worker, at minimum
-`pnpm exec wrangler deploy --dry-run` proves it still bundles.
+Use sources in this order: the
+[OpenAPI spec](https://github.com/soundcloud/api) (`openapi/api.yaml`),
+SoundCloud's `Agents.md` in that repo, then the
+[API guide](https://developers.soundcloud.com/docs/api/guide).
 
-## SoundCloud API rules
+Use the `soundcloud-api-sync` skill before adding endpoints, when these rules
+conflict with observed behavior, or when asked about upstream changes. Check the
+spec, not memory: endpoints have disappeared without notice and return 405.
+Update `PLAN.md` coverage and its synced-through date after auditing. Do not copy
+patterns from the unmaintained official Ruby, Python, or JavaScript SDKs.
 
-Authoritative sources, in order: the OpenAPI spec at
-<https://github.com/soundcloud/api> (`openapi/api.yaml`), SoundCloud's
-`Agents.md` in that same repo, then <https://developers.soundcloud.com/docs/api/guide>.
-Check the spec before adding an endpoint — several plausible-looking ones were
-removed from the public API and now return 405 (see `PLAN.md`).
+- API host: `https://api.soundcloud.com`. OAuth `/authorize` and `/oauth/token`:
+  `https://secure.soundcloud.com`. Legacy `api.soundcloud.com/oauth2/token` is
+  deprecated.
+- Send `Authorization: OAuth <token>`, not `Bearer`.
+- Normalize numeric IDs to URNs at the client boundary. Numeric path IDs are
+  deprecated.
+- Refresh tokens are single-use. Persist each replacement or the user must
+  authorize again. Only one component may refresh a token.
+- The worker's sole refresh owner is `tokenExchangeCallback` in `worker.ts`.
+  Write rotated tokens back to the OAuth grant so future sessions receive them.
+  Never refresh or own token state in the per-session Durable Object.
+- OAuth 2.1 requires PKCE. Preserve the verifier across redirects; the worker
+  stores it in KV under the OAuth state token.
+- Cache client-credentials tokens: limits are 50 per 12 hours per app and 30 per
+  hour per IP. Never mint one per request.
+- Pagination uses `linked_partitioning=true` and absolute `next_href` URLs.
+  Fetch those URLs as supplied, without rebasing. Default page size is 50;
+  maximum is 200.
+- Playlist writes replace the entire tracklist. To append, read, concatenate,
+  then PUT. Send track IDs above int32 (`2147483647`) as URN strings to avoid 422.
+- Track `access` is `playable`, `preview`, or `blocked`. Blocked tracks have no
+  stream. `/tracks/{urn}/streams` returns expiring URLs; `/stream` is deprecated.
 
-- **Two hosts.** `https://api.soundcloud.com` for the API,
-  `https://secure.soundcloud.com` for `/authorize` and `/oauth/token`. The
-  legacy `api.soundcloud.com/oauth2/token` is explicitly deprecated.
-- **`Authorization: OAuth <token>`** — not `Bearer`. This fails silently-ish
-  (401) if you copy a Spotify-shaped client.
-- **URNs, not numeric ids.** Paths take `soundcloud:tracks:123`. Numeric ids
-  still resolve today but are deprecated; normalize at the client boundary.
-- **Refresh tokens are single-use.** Every refresh returns a new one. Persist it
-  or the next refresh fails permanently and the user has to re-auth.
-- **PKCE is mandatory** (OAuth 2.1). The verifier must survive the redirect —
-  in the worker it lives in KV keyed by the OAuth state token.
-- **Client-credentials tokens are rate limited hard**: 50 per 12h per app, 30
-  per hour per IP. Cache them; never mint one per request.
-- **Pagination is cursor-based.** Pass `linked_partitioning=true` and follow
-  `next_href`, which is an absolute URL — fetch it as-is, do not re-base it onto
-  the API root. Default page 50, max 200.
-- **Playlist writes replace the whole tracklist** — there is no append endpoint.
-  Read, concatenate, PUT. Track ids above int32 (`2147483647`) must be sent as
-  URN strings or the API returns 422 with no useful message.
-- **`access` is `playable` | `preview` | `blocked`.** Blocked tracks have no
-  stream. `/tracks/{urn}/streams` returns time-limited URLs; the older
-  `/stream` endpoint is deprecated.
+## Verification and safety
 
-## Testing against the live API
+Never read `.env` directly. `pnpm start` and `pnpm run auth` load it through
+`--env-file-if-exists`. Local tokens default to `~/.soundcloud-mcp/tokens.json`;
+use them through the server, not by inspecting credentials.
 
-The stdio server has a working token at `~/.soundcloud-mcp/tokens.json`. The
-quickest end-to-end check is to drive the built server over stdio with an MCP
-client script — do that rather than curling the API by hand, since it exercises
-the tool layer too. Put scratch scripts in `tmp/` (gitignored).
-
-Never read `.env` directly. `pnpm start` and `pnpm run auth` load it natively via
-`--env-file-if-exists`.
-
-**Green unit tests do not mean the deployed worker works.** The tests inject a
-stub `fetch` and run on Node, not workerd, so anything that only fails against
-the real runtime passes them — that is exactly how a worker whose every tool
-call 500'd shipped with 22/22 green. If the worker is connected as an MCP server
-in your session, call its tools directly; that is the only check that covers the
-deployed code path.
-
-Pushing to `main` deploys the worker automatically. Confirm the version id with
-`pnpm exec wrangler deployments list` and match it against the CI log before
-concluding anything about what is live. `pnpm exec wrangler deploy --dry-run`
-proves it bundles without deploying, and CI runs that too.
-
-After a deploy, MCP clients cache `tools/list`, so a newly added tool is
-invisible until the client reconnects. That is not a bug you introduced.
-
-**Only one component may refresh the SoundCloud token.** They are single-use, so
-two refreshers means one spends a token the other still needs and the grant dies
-for good. On the worker that owner is `tokenExchangeCallback` in `worker.ts`,
-because its result is written back to the OAuth grant and therefore reaches
-sessions that do not exist yet. Never refresh inside the Durable Object: it is
-keyed by MCP session id, so it is recreated per session and anything it stores
-is invisible to the next one. That was issue #8.
-
-When testing writes against the live account, prefer reversible pairs and undo
-them (like/unlike, follow/unfollow, create/delete playlist). `add_comment` has
-no delete counterpart — comment only on the connected user's own tracks, and say
-so afterwards. `next_page` takes any absolute API URL, which makes it a handy
-escape hatch for trying an endpoint or query param we do not expose yet.
-
-## Staying current with the API
-
-Invoke the **`soundcloud-api-sync`** skill before adding an endpoint, when
-something contradicts the rules above, or when asked what changed upstream. It
-carries the authoritative source list; `PLAN.md` carries the coverage gap table
-and a "synced through" date. Do not answer SoundCloud API questions from memory —
-the spec has moved in both directions, and endpoints have been removed without
-notice.
-
-The official Ruby, Python, and JS SDKs are all unmaintained and out of sync with
-the API. Do not copy patterns from them.
+- Run `pnpm check` before finishing: lint, Markdown lint, both typechecks, tests.
+- Run `pnpm verify` for live stdio checks. It builds the server, exercises read
+  tools, resources and templates, and creates, reads, then deletes a temporary
+  playlist. It does not cover every tool.
+- For extra checks, drive the built server through an MCP client rather than
+  curling the API. Put scratch scripts in gitignored `tmp/`.
+- Run `pnpm exec wrangler deploy --dry-run` to check worker bundling without
+  deploying. Node tests with stubbed `fetch` do not verify workerd or deployment.
+  If the deployed worker is connected as an MCP server, call its tools directly.
+- Pushes to `main` deploy when CI deployment is enabled. Match
+  `pnpm exec wrangler deployments list` version IDs against CI logs before
+  claiming a change is live. Reconnect clients to refresh cached `tools/list`.
+- Undo live writes with reversible pairs: like/unlike, follow/unfollow,
+  create/delete playlist. `add_comment` has no delete counterpart; comment only
+  on the connected user's own tracks and report it afterward.
+- `next_page` can try absolute API URLs for unexposed endpoints or parameters.
+  Use only SoundCloud API URLs: requests carry the user's token.
 
 ## Conventions
 
-- Tools carry `title` + behavior annotations, return `structuredContent`
-  alongside text, and emit `resource_link` blocks for permalinks, artwork, and
-  audio. Keep that up for new tools.
-- **`outputSchema` must use `z.looseObject`, never `z.object`.** A plain object
-  compiles to `additionalProperties: false`, and the *client* validates the
-  result strictly — so the first extra field SoundCloud adds becomes a protocol
-  error the server never sees and no unit test catches. Describe the envelope
-  (`collection`, `next_href`) and stop there; pinning entity fields buys nothing
-  against an API that changes shape without notice. Tools that can return a bare
-  array rather than a collection — `next_page` — get no `outputSchema` at all.
-- Only declare `outputSchema` on tools that always return an object. If a tool
-  can return a plain string, the SDK errors on the missing `structuredContent`.
-- Error text reaching the model should be one short actionable sentence, never a
-  raw API body.
-- Biome, tabs in the worker / 2 spaces in `src/`. Run the project's `lint`,
-  `type-check`, and `test` before finishing.
+- Use Biome and tabs, as configured in `biome.json`.
+- Give tools a `title` and behavior annotations. Return `structuredContent`
+  alongside text where applicable, and `resource_link` blocks for permalinks,
+  artwork, and audio.
+- Use `z.looseObject`, never `z.object`, for `outputSchema`. Strict schemas
+  reject undocumented upstream fields at the client. Describe only the envelope
+  (`collection`, `next_href`), not entity fields.
+- Declare `outputSchema` only when every result is an object. Omit it for tools
+  that can return strings or bare arrays, including `next_page`; otherwise the
+  SDK can reject missing `structuredContent`.
+- Return one short, actionable error sentence to the model, never a raw API body.

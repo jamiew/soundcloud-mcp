@@ -3,16 +3,13 @@ import type { SoundCloudClient } from "../client.js";
 import { getValidAccessToken, hasUserToken, loginWithBrowser, signOut } from "./oauth.js";
 import { clearTokens } from "./tokenStore.js";
 
-// Login lives in the tool layer only for stdio. The worker authenticates at the
-// transport instead, per the MCP guidance that stdio servers take credentials
-// from the environment rather than the OAuth flow.
+// Stdio handles login through tools; the worker uses transport OAuth.
 export function registerAuthTools(server: McpServer, sc: SoundCloudClient): void {
 	server.registerTool(
 		"connect_soundcloud",
 		{
 			title: "Connect SoundCloud",
-			description:
-				"Log in to SoundCloud: opens a browser for OAuth and stores the token for future sessions.",
+			description: "Log in through your browser and save the token for future sessions.",
 			annotations: { title: "Connect SoundCloud", readOnlyHint: false, openWorldHint: true },
 		},
 		async () => {
@@ -23,14 +20,17 @@ export function registerAuthTools(server: McpServer, sc: SoundCloudClient): void
 					content: [
 						{
 							type: "text" as const,
-							text: `Connected as ${me.username} (id ${me.id}). Token expires in ${token.expires_in}s and will auto-refresh.`,
+							text: `Connected as ${me.username} (id ${me.id}). Token refreshes automatically after ${token.expires_in}s.`,
 						},
 					],
 				};
-			} catch (error) {
+			} catch {
 				return {
 					content: [
-						{ type: "text" as const, text: error instanceof Error ? error.message : String(error) },
+						{
+							type: "text" as const,
+							text: "SoundCloud login failed. Try connect_soundcloud again.",
+						},
 					],
 					isError: true,
 				};

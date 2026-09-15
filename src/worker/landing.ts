@@ -2,8 +2,7 @@
 
 const REPO_URL = "https://github.com/jamiew/soundcloud-mcp";
 
-// Hand-maintained, and checked against the real registrations in landing.test.ts
-// so it cannot drift.
+// landing.test.ts checks this list against registered tools.
 export const TOOL_GROUPS: [string, string[]][] = [
 	[
 		"Discovery",
@@ -64,14 +63,12 @@ export const TOOL_GROUPS: [string, string[]][] = [
 
 const TOOL_COUNT = TOOL_GROUPS.reduce((n, [, list]) => n + list.length, 0);
 
-const DESCRIPTION =
-	"A remote MCP server giving AI assistants access to SoundCloud search, your library, and playlists.";
+const DESCRIPTION = "Search SoundCloud and manage your library with an AI assistant.";
 
 const escapeHtml = (s: string) =>
 	s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-/** Renders the install page. `origin` comes from the request, so it is correct
- * on workers.dev, a custom domain, or localhost during `wrangler dev`. */
+/** Renders the install page using the request origin. */
 export function landingPage(origin: string): string {
 	const mcpUrl = `${origin}/mcp`;
 	const tools = TOOL_GROUPS.map(
@@ -151,9 +148,8 @@ export function landingPage(origin: string): string {
 <main>
   <h1>SoundCloud MCP<span class="dot">.</span></h1>
   <p class="lede">
-    A remote <a href="https://modelcontextprotocol.io">MCP</a> server that gives an AI assistant
-    access to SoundCloud — search and discovery, your likes and playlists, follows and reposts.
-    ${TOOL_COUNT} tools, each verified against the live API.
+    Search SoundCloud and manage your likes, playlists, follows, and reposts
+    through <a href="https://modelcontextprotocol.io">MCP</a>.
   </p>
 
   <h2>Endpoint</h2>
@@ -164,17 +160,16 @@ export function landingPage(origin: string): string {
 
   <h2>Add to Claude web or desktop</h2>
   <p>
-    Settings → Connectors → Add custom connector, and paste the endpoint URL above.
-    The first tool call opens SoundCloud's login in your browser.
+    Open Settings → Connectors → Add custom connector. Paste the endpoint URL,
+    then sign in to SoundCloud when prompted.
   </p>
 
   <div class="note">
-    This is someone's personal server. Access is limited to an allowlist of SoundCloud
-    accounts, so signing in will not grant you access —
-    <a href="${REPO_URL}">run your own</a> instead. It is one <code>wrangler deploy</code>.
+    Access requires an approved SoundCloud account.
+    Not on the allowlist? <a href="${REPO_URL}">Deploy your own server</a>.
   </div>
 
-  <h2>Tools</h2>
+  <h2>Tools <span class="count">${TOOL_COUNT}</span></h2>
   <div class="groups">${tools}</div>
 
   <footer>

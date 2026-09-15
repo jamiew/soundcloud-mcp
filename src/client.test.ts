@@ -90,11 +90,15 @@ describe("SoundCloudClient", () => {
 		await expect(client.getMe()).rejects.toBeInstanceOf(RateLimitedError);
 	});
 
-	it("prefers SoundCloud's own error message", async () => {
-		const { impl } = stubFetch([json({ message: "Playlist not found" }, 404)]);
+	it("keeps upstream error details out of client-facing errors", async () => {
+		const detail = "Internal request details that must stay private";
+		const { impl } = stubFetch([json({ message: detail }, 422)]);
 		const client = new SoundCloudClient(tokens().provider, undefined, impl);
 
-		await expect(client.getPlaylist(5)).rejects.toThrow("Playlist not found");
+		await expect(client.getPlaylist(5)).rejects.toMatchObject({
+			status: 422,
+			message: expect.not.stringContaining(detail),
+		});
 	});
 
 	it("asks for cursor pagination on collection endpoints", async () => {

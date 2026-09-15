@@ -1,14 +1,14 @@
 {
 	"name": "soundcloud-mcp",
 	"version": "1.0.0",
-	"description": "MCP server for SoundCloud — stdio and Cloudflare Workers",
+	"description": "SoundCloud MCP server for stdio and Cloudflare Workers",
 	"type": "module",
 	"main": "build/index.js",
 	"scripts": {
 		"build": "tsc -p tsconfig.build.json && node -e \"['index','stdio/auth'].forEach(f=>require('fs').chmodSync('build/'+f+'.js','755'))\"",
 		"start": "node --env-file-if-exists=.env build/index.js",
 		"auth": "pnpm build && node --env-file-if-exists=.env build/stdio/auth.js",
-		"dev": "tsc -w",
+		"dev": "tsc -p tsconfig.build.json --watch",
 		"typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.worker.json",
 		"test": "vitest run",
 		"test:watch": "vitest",
@@ -19,7 +19,6 @@
 		"verify": "pnpm build && node scripts/verify.mjs",
 		"worker:dev": "wrangler dev",
 		"worker:deploy": "wrangler deploy",
-		"worker:typegen": "wrangler types",
 		"inspector": "pnpm build && pnpm dlx @modelcontextprotocol/inspector node --env-file-if-exists=.env build/index.js"
 	},
 	"keywords": [
@@ -29,23 +28,24 @@
 	],
 	"author": "",
 	"license": "ISC",
+	"packageManager": "pnpm@11.21.0",
 	"engines": {
-		"node": ">=22"
+		"node": "^22.18.0 || >=24.11.0"
 	},
 	"dependencies": {
-		"@cloudflare/workers-oauth-provider": "^0.8.1",
-		"@modelcontextprotocol/sdk": "^1.29.0",
-		"agents": "^0.17.1",
-		"hono": "^4.12.27",
-		"zod": "^4.4.3"
+		"@cloudflare/workers-oauth-provider": "^0.10.3",
+		"@modelcontextprotocol/sdk": "^1.30.0",
+		"agents": "^0.23.0",
+		"hono": "^4.13.7",
+		"zod": "^4.6.5"
 	},
 	"devDependencies": {
-		"@biomejs/biome": "^2.5.5",
-		"@cloudflare/workers-types": "^4.20260628.1",
-		"@types/node": "^22.10.0",
-		"markdownlint-cli2": "^0.23.1",
-		"typescript": "^6.0.3",
-		"vitest": "^4.1.10",
-		"wrangler": "^4.105.0"
+		"@biomejs/biome": "^2.5.13",
+		"@cloudflare/workers-types": "^5.20260914.1",
+		"@types/node": "^22.20.2",
+		"markdownlint-cli2": "^0.23.2",
+		"typescript": "^7.0.2",
+		"vitest": "^5.0.0",
+		"wrangler": "^4.131.1"
 	}
 }

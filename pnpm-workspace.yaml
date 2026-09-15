@@ -1,6 +1,10 @@
-# Not a workspace — this repo is a single package. pnpm 11 reads build-script
-# approvals from here, and wrangler/vitest need theirs to compile.
+# Build-script approvals for this single-package repo.
 allowBuilds:
   core-js-pure: true
   esbuild: true
   workerd: true
+overrides:
+  # markdownlint-cli2 pins a TOML parser with a denial-of-service vulnerability.
+  markdownlint-cli2>smol-toml: 1.7.1
+  # Keep Nano ID 3 above its denial-of-service fix without changing Nano ID 5.
+  nanoid@<3.3.18: 3.3.18

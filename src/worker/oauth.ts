@@ -71,8 +71,7 @@ async function tokenRequest(body: Record<string, string>): Promise<OAuthTokenRes
 		body: new URLSearchParams(body).toString(),
 	});
 	if (!response.ok) {
-		const text = await response.text();
-		throw new Error(`SoundCloud token request failed (${response.status}): ${text.slice(0, 300)}`);
+		throw new Error("SoundCloud token request failed. Check app credentials or reconnect.");
 	}
 	return (await response.json()) as OAuthTokenResponse;
 }

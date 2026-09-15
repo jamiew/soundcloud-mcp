@@ -18,8 +18,7 @@ type ToolResult = {
 	isError?: boolean;
 };
 
-// Tool annotations per the MCP spec. openWorldHint is true everywhere since
-// every tool talks to the external SoundCloud API.
+// Every tool calls the external SoundCloud API.
 const READ = { readOnlyHint: true, openWorldHint: true } as const;
 const WRITE = { readOnlyHint: false, openWorldHint: true } as const;
 const DESTRUCTIVE = {
@@ -29,18 +28,11 @@ const DESTRUCTIVE = {
 	openWorldHint: true,
 } as const;
 
-// Declared output schemas so clients can validate and render `structuredContent`
-// instead of re-parsing the text block. Only the envelope is described: SoundCloud
-// adds and drops fields without notice, and pinning them buys nothing.
-//
-// `looseObject`, not `object`, is load-bearing. A plain object compiles to
-// `additionalProperties: false`, and the *client* validates strictly — so an extra
-// field SoundCloud tacks on (`query_urn` on the feed) becomes a protocol error the
-// server never sees. Omitted entirely on `next_page`, which doubles as an escape
-// hatch for endpoints returning a bare array rather than a collection.
+// Describe only the page envelope. looseObject accepts new SoundCloud fields.
+// next_page has no output schema because some endpoints return bare arrays.
 const PAGE_OUT = z.looseObject({
-	collection: z.array(z.unknown()).describe("The items on this page"),
-	next_href: z.string().nullish().describe("Absolute URL of the next page — pass to next_page"),
+	collection: z.array(z.unknown()).describe("Page items"),
+	next_href: z.string().nullish().describe("Next page URL; pass to next_page"),
 });
 const LIST_OUT = z.looseObject({ items: z.array(z.unknown()) });
 
@@ -64,15 +56,14 @@ function toolError(message: string): ToolResult {
 	return { content: [{ type: "text", text: message }], isError: true };
 }
 
-// Raw SoundCloud error bodies never reach the model; every failure becomes a
-// short, actionable sentence.
+// Keep API errors short and actionable.
 function mapError(error: unknown): ToolResult {
 	if (error instanceof SoundCloudAuthError || error instanceof RateLimitedError) {
 		return toolError(error.message);
 	}
 	if (error instanceof SoundCloudApiError) {
 		if (error.status === 404) {
-			return toolError("SoundCloud could not find that resource — check the id or URN.");
+			return toolError("Resource not found on SoundCloud. Check the id or URN.");
 		}
 		if (error.status === 403) {
 			return toolError(
@@ -84,7 +75,7 @@ function mapError(error: unknown): ToolResult {
 		}
 		return toolError(error.message);
 	}
-	return toolError(error instanceof Error ? error.message : String(error));
+	return toolError("SoundCloud request failed. Try again or reconnect.");
 }
 
 /** Runs a handler, turning results into MCP content and errors into clean text. */
@@ -208,7 +199,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Resolve a SoundCloud URL",
 			description:
-				"Turn any soundcloud.com or on.soundcloud.com permalink into the underlying track, user, or playlist. Use this whenever the user pastes a SoundCloud link.",
+				"Resolve a soundcloud.com or on.soundcloud.com link to a track, user, or playlist. Use for pasted SoundCloud links.",
 			inputSchema: { url: z.string().url() },
 			annotations: { title: "Resolve a SoundCloud URL", ...READ },
 		},
@@ -242,7 +233,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Get an artist's tracks",
 			description:
-				"List the tracks a user has uploaded. Use search_users first to find the user id. Pass sort='asc' for earliest first or sort='desc' for newest first.",
+				"List a user's uploads. Find ids with search_users. Sort: asc for oldest first, desc for newest.",
 			inputSchema: { userId: id, limit, sort: trackSort },
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's tracks", ...READ },
@@ -266,7 +257,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"get_user_likes",
 		{
 			title: "Get an artist's likes",
-			description: "List tracks a user has liked — often a better taste signal than their uploads.",
+			description: "List tracks a user has liked.",
 			inputSchema: { userId: id, limit },
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's likes", ...READ },
@@ -289,7 +280,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"get_playlist_tracks",
 		{
 			title: "Get playlist tracks",
-			description: "Page through a playlist's tracks without refetching the whole playlist.",
+			description: "List a page of playlist tracks.",
 			inputSchema: { playlistId: id, limit },
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get playlist tracks", ...READ },
@@ -301,8 +292,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"get_related_tracks",
 		{
 			title: "Get related tracks",
-			description:
-				"SoundCloud's track-to-track recommendations. This is the main recommendation surface — seed it with a track the user likes.",
+			description: "Find related tracks, starting with a track the user likes.",
 			inputSchema: { trackId: id, limit },
 			outputSchema: LIST_OUT,
 			annotations: { title: "Get related tracks", ...READ },
@@ -314,7 +304,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"get_related_artists",
 		{
 			title: "Get related artists",
-			description: "SoundCloud's artist-to-artist recommendations for a user.",
+			description: "Find artists related to a user.",
 			inputSchema: { userId: id, limit },
 			outputSchema: LIST_OUT,
 			annotations: { title: "Get related artists", ...READ },
@@ -326,8 +316,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"get_stream_url",
 		{
 			title: "Get stream URL",
-			description:
-				"Get playable audio URLs for a track. These are time-limited, and blocked tracks return nothing.",
+			description: "Get temporary audio URLs. Blocked tracks have no stream.",
 			inputSchema: { trackId: id },
 			annotations: { title: "Get stream URL", ...READ },
 		},
@@ -351,7 +340,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Next page",
 			description:
-				"Follow the `next_href` cursor from any paginated result to fetch the next page. Issues a GET against the SoundCloud API (https://developers.soundcloud.com/docs/api/guide).",
+				"Fetch next_href with a GET to the SoundCloud API (https://developers.soundcloud.com/docs/api/guide).",
 			inputSchema: { nextHref: z.string().url().describe("The next_href from a previous result") },
 			annotations: { title: "Next page", ...READ },
 		},
@@ -398,7 +387,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Get my uploads",
 			description:
-				"List tracks the connected user has uploaded. Pass sort='asc' for earliest first or sort='desc' for newest first.",
+				"List the connected user's uploads. Sort: asc for oldest first, desc for newest.",
 			inputSchema: { limit, sort: trackSort },
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my uploads", ...READ },
@@ -422,8 +411,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"get_feed",
 		{
 			title: "Get my feed",
-			description:
-				"Recent tracks from people the user follows — the personalized discovery surface.",
+			description: "List recent tracks from people the connected user follows.",
 			inputSchema: { limit },
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my feed", ...READ },
@@ -539,7 +527,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Add comment",
 			description:
-				"Comment on a track, optionally anchored to a moment in the audio. Fails if the creator disabled comments.",
+				"Post a comment with an optional timestamp. Comments must be enabled; the API has no undo.",
 			inputSchema: {
 				trackId: id,
 				body: z.string().min(1),
@@ -555,8 +543,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"create_playlist",
 		{
 			title: "Create playlist",
-			description:
-				"Create a playlist, optionally seeded with tracks. Private unless told otherwise.",
+			description: "Create a playlist with optional tracks. Private by default.",
 			inputSchema: {
 				title: z.string().min(1),
 				description: z.string().optional(),
@@ -583,7 +570,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Update playlist",
 			description:
-				"Rename a playlist, change its description or sharing, or replace its whole tracklist (also how you reorder).",
+				"Edit a playlist's title, description, or sharing. trackIds replaces and orders the entire tracklist.",
 			inputSchema: {
 				playlistId: id,
 				title: z.string().optional(),
@@ -721,7 +708,7 @@ function registerPrompts(server: McpServer, sc: SoundCloudClient): void {
 						role: "user",
 						content: {
 							type: "text",
-							text: `Analyze my music taste based on these tracks I've liked:\n\n${JSON.stringify(likes, null, 2)}\n\nCall out genres, artists, and production qualities I gravitate toward.`,
+							text: `Analyze my liked tracks:\n\n${JSON.stringify(likes, null, 2)}\n\nIdentify favorite genres, artists, and production styles.`,
 						},
 					},
 				],
@@ -747,7 +734,7 @@ function registerPrompts(server: McpServer, sc: SoundCloudClient): void {
 						role: "user",
 						content: {
 							type: "text",
-							text: `Here's a track I like:\n\n${JSON.stringify(track, null, 2)}\n\nAnd tracks SoundCloud says are related:\n\n${JSON.stringify(related, null, 2)}\n\nExplain what they share and which three I'd most likely enjoy.`,
+							text: `A track I like:\n\n${JSON.stringify(track, null, 2)}\n\nRelated tracks:\n\n${JSON.stringify(related, null, 2)}\n\nExplain what they share and recommend three.`,
 						},
 					},
 				],
@@ -759,7 +746,7 @@ function registerPrompts(server: McpServer, sc: SoundCloudClient): void {
 		"discover_new_music",
 		{
 			title: "Discover new music",
-			description: "Get personalized music discovery recommendations",
+			description: "Find music based on your likes, genres, and mood",
 			argsSchema: { genres: z.string().optional(), mood: z.string().optional() },
 		},
 		async ({ genres, mood }) => {
@@ -774,7 +761,7 @@ function registerPrompts(server: McpServer, sc: SoundCloudClient): void {
 						role: "user",
 						content: {
 							type: "text",
-							text: `I'm looking for new music${genres ? ` in these genres: ${genres}` : ""}${mood ? ` with a ${mood} mood` : ""}.\n\nTracks I've liked:\n${JSON.stringify(likes, null, 2)}\n\nSome tracks matching "${seed ?? ""}":\n${JSON.stringify(search, null, 2)}\n\nSuggest new tracks, artists, or genres I might enjoy and explain why.`,
+							text: `Recommend new music${genres ? ` in these genres: ${genres}` : ""}${mood ? ` with a ${mood} mood` : ""}.\n\nMy likes:\n${JSON.stringify(likes, null, 2)}\n\nSearch results for "${seed ?? ""}":\n${JSON.stringify(search, null, 2)}\n\nSuggest tracks, artists, or genres and explain why.`,
 						},
 					},
 				],

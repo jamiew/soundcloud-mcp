@@ -18,12 +18,11 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
 
 const server = new McpServer(serverInfo("soundcloud", "1.0.0"), {
 	instructions: instructions(
-		"- Public search works without a login. Personal data and any write need `connect_soundcloud` first."
+		"- Public search needs no login. Use `connect_soundcloud` for personal data and writes."
 	),
 });
 
-// One client over the unified token provider: a logged-in user token when there
-// is one, client-credentials otherwise so public search still works.
+// Use a user token when logged in, otherwise cached client credentials.
 const sc = new SoundCloudClient(tokenProvider);
 registerTools(server, sc);
 registerAuthTools(server, sc);

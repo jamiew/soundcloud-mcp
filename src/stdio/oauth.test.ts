@@ -82,15 +82,18 @@ describe("getClientCredentialsToken", () => {
 		expect(headers.Authorization.startsWith("Basic ")).toBe(true);
 	});
 
-	it("rejects with OAuthError when the token request fails", async () => {
+	it("rejects token failures without exposing the response body", async () => {
 		const fetchMock = vi.fn(async () => ({
 			ok: false,
 			status: 401,
 			json: async () => ({}),
-			text: async () => "bad",
+			text: async () => "private upstream details",
 		}));
 		vi.stubGlobal("fetch", fetchMock);
 
 		await expect(getClientCredentialsToken()).rejects.toBeInstanceOf(OAuthError);
+		await expect(getClientCredentialsToken()).rejects.toMatchObject({
+			message: expect.not.stringContaining("private upstream details"),
+		});
 	});
 });

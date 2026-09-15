@@ -1,6 +1,4 @@
-// The Node/stdio build. The Workers half compiles under tsconfig.worker.json —
-// the two runtimes disagree about `fetch`, `Request` and friends, so they can't
-// share one type environment even though they share source files.
+// Node and Workers need separate global types.
 {
 	"compilerOptions": {
 		"target": "ES2023",

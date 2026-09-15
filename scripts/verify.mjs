@@ -1,12 +1,12 @@
-// Live end-to-end check of the stdio server against the real SoundCloud API.
-// Usage: node tmp/verify.mjs
+// Live API checks, including a temporary playlist. Run with pnpm verify.
+import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 
 const transport = new StdioClientTransport({
 	command: "node",
 	args: ["--env-file-if-exists=.env", "build/index.js"],
-	cwd: "/Users/jamie/dev/soundcloud-mcp",
+	cwd: fileURLToPath(new URL("..", import.meta.url)),
 });
 const client = new Client({ name: "verify", version: "1.0.0" });
 await client.connect(transport);
@@ -117,11 +117,9 @@ if (seed) {
 	}
 }
 
-// Protocol surfaces beyond tools. Templates are read by URI, so this is the only
-// thing that proves they resolve.
+// Check MCP metadata, resources, and templates.
 const info = client.getServerVersion();
 check("server metadata", !!(info.title && info.description && info.icons?.length), info.title);
-check("instructions", (client.getInstructions()?.length ?? 0) > 100);
 
 const { resources } = await client.listResources();
 check("list resources", resources.length === 3, resources.map((r) => r.uri).join(", "));

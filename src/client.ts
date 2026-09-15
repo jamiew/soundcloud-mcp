@@ -1,5 +1,4 @@
-// SoundCloud public API client for the Worker runtime: transparent 401
-// refresh-and-retry, URN normalization, and cursor pagination.
+// Shared API client: token refresh, URN normalization, and cursor pagination.
 
 import type {
 	FeedItem,
@@ -44,11 +43,7 @@ export interface TokenProvider {
 	refreshAccessToken(): Promise<string>;
 }
 
-/**
- * SoundCloud's own agent guidance says numeric IDs are deprecated in favour of
- * URNs, so every id that reaches a path gets normalized here. Bare numbers and
- * permalink-style ids both become `soundcloud:<kind>:<id>`.
- */
+/** Normalize numeric or permalink-style ids to SoundCloud URNs. */
 export function toUrn(kind: "tracks" | "users" | "playlists", idOrUrn: string | number): string {
 	const raw = String(idOrUrn).trim();
 	if (raw.startsWith("soundcloud:")) return raw;
@@ -94,10 +89,11 @@ export class SoundCloudClient {
 			if (response.status === 429) throw new RateLimitedError();
 
 			if (!response.ok) {
-				throw new SoundCloudApiError(
-					await this.errorMessage(response, spec.method ?? "GET", path),
-					response.status
-				);
+				const message =
+					response.status >= 500
+						? "SoundCloud is unavailable. Try again later."
+						: "SoundCloud rejected the request. Check the inputs and your access.";
+				throw new SoundCloudApiError(message, response.status);
 			}
 
 			if (response.status === 204) return undefined as T;
@@ -122,25 +118,6 @@ export class SoundCloudClient {
 			headers,
 			...(body !== undefined ? { body } : {}),
 		});
-	}
-
-	private async errorMessage(response: Response, method: string, path: string): Promise<string> {
-		const fallback = `SoundCloud returned ${response.status} for ${method} ${path}`;
-		try {
-			const body: unknown = await response.json();
-			if (typeof body === "object" && body !== null) {
-				const record = body as Record<string, unknown>;
-				if (typeof record.message === "string" && record.message) return record.message;
-				const errors = record.errors;
-				if (Array.isArray(errors) && errors.length > 0) {
-					const first = errors[0] as Record<string, unknown>;
-					if (typeof first?.error_message === "string") return first.error_message;
-				}
-			}
-			return fallback;
-		} catch {
-			return fallback;
-		}
 	}
 
 	// Cursor pagination: `next_href` is a fully-qualified URL, so it is fetched

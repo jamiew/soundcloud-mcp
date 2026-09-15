@@ -47,8 +47,7 @@ async function tokenRequest(
 		body: body.toString(),
 	});
 	if (!response.ok) {
-		const text = await response.text();
-		throw new OAuthError(`Token request failed (${response.status}): ${text.slice(0, 300)}`);
+		throw new OAuthError("SoundCloud token request failed. Check app credentials or reconnect.");
 	}
 	return response.json() as Promise<OAuthToken>;
 }
@@ -93,8 +92,7 @@ export async function signOut(accessToken: string): Promise<void> {
 		body: JSON.stringify({ access_token: accessToken }),
 	});
 	if (!response.ok) {
-		const text = await response.text();
-		throw new OAuthError(`Sign out failed (${response.status}): ${text.slice(0, 300)}`);
+		throw new OAuthError("SoundCloud sign-out failed. Try again.");
 	}
 }
 
@@ -103,17 +101,13 @@ export async function signOut(accessToken: string): Promise<void> {
 export async function getValidAccessToken(): Promise<string> {
 	const tokens = loadTokens();
 	if (!tokens) {
-		throw new OAuthError(
-			"Not authenticated. Run `pnpm run auth` (or the connect-soundcloud tool) to log in."
-		);
+		throw new OAuthError("Log in with `pnpm run auth` or the connect_soundcloud tool.");
 	}
 	if (tokens.access_token && !isExpired(tokens)) {
 		return tokens.access_token;
 	}
 	if (!tokens.refresh_token) {
-		throw new OAuthError(
-			"Access token expired and no refresh token. Run `pnpm run auth` to log in again."
-		);
+		throw new OAuthError("Token expired and cannot be refreshed. Run `pnpm run auth`.");
 	}
 	debug("Access token expired; refreshing");
 	const refreshed = await refreshToken(tokens.refresh_token);
@@ -235,7 +229,7 @@ export function loginWithBrowser(
 
 			if (error) {
 				send(400, "SoundCloud login failed");
-				finish(() => reject(new OAuthError(reqUrl.searchParams.get("error_description") || error)));
+				finish(() => reject(new OAuthError("SoundCloud login failed. Try connecting again.")));
 			} else if (state !== pkce.state) {
 				send(400, "Invalid state");
 				finish(() => reject(new OAuthError("OAuth state mismatch (possible CSRF).")));
