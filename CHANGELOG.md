@@ -11,10 +11,10 @@
 - Errors returned to clients and browsers no longer include upstream response
   bodies or exception text; details are logged server-side.
 - Worker OAuth now requires S256 PKCE for public clients.
-- Refreshed the SoundCloud API audit through 2026-09-16, the latest release. `get_stream_url` now
-  links the HLS stream and falls back to the MP3 preview, since SoundCloud
-  removed the progressive `http_mp3_128_url` on 2026-08-12. `resolve_url`
-  notes that station links resolve to system playlists.
+- Refreshed the SoundCloud API audit through 2026-09-16, the latest release.
+  `get_stream_url` now links the HLS stream and falls back to the MP3 preview,
+  since SoundCloud removed the progressive `http_mp3_128_url` on 2026-08-12.
+  `resolve_url` notes that station links resolve to system playlists.
 - Removed `PLAN.md`. The synced-through date now lives in the
   `soundcloud-api-sync` skill and the coverage gap list in issue #2.
 
