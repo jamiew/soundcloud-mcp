@@ -176,3 +176,8 @@ node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-07-19
 The [official spec](https://github.com/soundcloud/api) is authoritative. Track
 [release notes](https://github.com/soundcloud/api/releases.atom) and
 [spec edits](https://github.com/soundcloud/api/commits/master/openapi/api.yaml.atom).
+
+## Contributors
+
+- [@jamiew](https://github.com/jamiew)
+- [@c436zhan](https://github.com/c436zhan)
