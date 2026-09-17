@@ -19,6 +19,9 @@
   `resolve_url` notes that station links resolve to system playlists.
 - Removed `PLAN.md`. The synced-through date now lives in the
   `soundcloud-api-sync` skill and the coverage gap list in issue #2.
+- Raised the worker compatibility date from 2025-03-10 to 2026-09-11. The
+  runtime now provides `process`, `console`, `os`, `perf_hooks`, and `tty`, so
+  the bundle no longer ships those polyfills.
 
 ## 2026-07-30
 
