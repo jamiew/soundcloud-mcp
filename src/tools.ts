@@ -126,11 +126,23 @@ function playlistLinks(playlist?: SoundCloudPlaylist): ContentBlock[] {
 	];
 }
 
-// Prefer the progressive MP3, fall back to preview or HLS. Time-limited by SoundCloud.
+// Full-length streams are HLS only; the MP3 preview is a snippet, so it comes
+// last. All URLs are time-limited by SoundCloud.
 function streamLinks(streams?: TrackStreams): ContentBlock[] {
-	const uri = streams?.http_mp3_128_url ?? streams?.preview_mp3_128_url ?? streams?.hls_mp3_128_url;
-	if (!uri) return [];
-	return [{ type: "resource_link", uri, name: "audio stream", mimeType: "audio/mpeg" }];
+	const hls = streams?.hls_mp3_128_url ?? streams?.hls_aac_160_url;
+	if (hls) {
+		return [
+			{
+				type: "resource_link",
+				uri: hls,
+				name: "audio stream",
+				mimeType: "application/vnd.apple.mpegurl",
+			},
+		];
+	}
+	const preview = streams?.preview_mp3_128_url;
+	if (!preview) return [];
+	return [{ type: "resource_link", uri: preview, name: "audio preview", mimeType: "audio/mpeg" }];
 }
 
 export function registerTools(server: McpServer, sc: SoundCloudClient): void {
@@ -199,7 +211,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Resolve a SoundCloud URL",
 			description:
-				"Resolve a soundcloud.com or on.soundcloud.com link to a track, user, or playlist. Use for pasted SoundCloud links.",
+				"Resolve a soundcloud.com or on.soundcloud.com link to a track, user, playlist, or station. Use for pasted SoundCloud links.",
 			inputSchema: { url: z.string().url() },
 			annotations: { title: "Resolve a SoundCloud URL", ...READ },
 		},
@@ -316,7 +328,8 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"get_stream_url",
 		{
 			title: "Get stream URL",
-			description: "Get temporary audio URLs. Blocked tracks have no stream.",
+			description:
+				"Get temporary audio URLs: HLS for full tracks, MP3 for previews. Blocked tracks have no stream.",
 			inputSchema: { trackId: id },
 			annotations: { title: "Get stream URL", ...READ },
 		},

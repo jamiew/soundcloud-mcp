@@ -67,9 +67,9 @@ export interface FeedItem {
 	user?: SoundCloudUser;
 }
 
-/** Time-limited playback URLs from /tracks/{urn}/streams. */
+// Time-limited playback URLs from /tracks/{urn}/streams. The progressive
+// `http_mp3_128_url` was removed on 2026-08-12; full-length playback is HLS.
 export interface TrackStreams {
-	http_mp3_128_url?: string;
 	hls_mp3_128_url?: string;
 	hls_aac_160_url?: string;
 	preview_mp3_128_url?: string;

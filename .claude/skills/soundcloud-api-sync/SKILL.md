@@ -1,6 +1,6 @@
 ---
 name: soundcloud-api-sync
-description: Refresh this repo's knowledge of the SoundCloud API from official sources — diff the live OpenAPI spec against the endpoints we call, read new API release notes, and update PLAN.md. Use when asked what changed in the SoundCloud API, whether an endpoint still exists, what features we could add, or to check for API announcements.
+description: Refresh this repo's knowledge of the SoundCloud API from official sources — diff the live OpenAPI spec against the endpoints we call, read new API release notes, and record the synced-through date. Use when asked what changed in the SoundCloud API, whether an endpoint still exists, what features we could add, or to check for API announcements.
 ---
 
 # SoundCloud API sync
@@ -14,7 +14,7 @@ re-derives what is true from the official sources.
 
 ```bash
 node .claude/skills/soundcloud-api-sync/audit.mjs                  # latest 8 releases
-node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-07-19
+node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-09-17
 ```
 
 It fetches the live spec and prints three things:
@@ -25,8 +25,11 @@ It fetches the live spec and prints three things:
   a candidate for the silent 405 treatment; verify it live before trusting it.
 - **RELEASES** — dated release-note headlines.
 
-Pass `--since` with the date in PLAN.md's "SoundCloud API synced through" line
-to see only what is new, then update that line when done.
+**Synced through: 2026-09-17.**
+
+Pass `--since` with that date to see only what is new, then update it here when
+done. The coverage gap list lives in
+[issue #2](https://github.com/jamiew/soundcloud-mcp/issues/2).
 
 ## Authoritative sources, in order
 
@@ -73,7 +76,8 @@ memory — check the spec if something contradicts them.
 1. Report new endpoints and note which are worth exposing as tools.
 2. If an endpoint we call vanished from the spec, verify it live before removing
    anything — the spec has lagged reality in both directions.
-3. Update the coverage table and the "synced through" date in `PLAN.md`.
+3. Update the "Synced through" date above and the gap list in
+   [issue #2](https://github.com/jamiew/soundcloud-mcp/issues/2).
 4. Both servers share `src/client.ts` and `src/tools.ts`, so a tool change lands
    in both at once — but verify each, since only stdio is covered by
    `pnpm verify`.
