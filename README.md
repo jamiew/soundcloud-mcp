@@ -145,7 +145,8 @@ Both servers share these tools. Only the local server exposes login tools.
   only; authenticated requests include your token.
 - Playlist track changes replace the full tracklist. Comments have no delete
   tool or public API endpoint; treat them as permanent.
-- Stream URLs expire, and blocked tracks have no stream.
+- Stream URLs expire, and blocked tracks have no stream. Full tracks stream over
+  HLS; the only MP3 is a short preview.
 
 Tools provide behavior annotations, structured results, and resource links.
 Resources include `soundcloud://me/{profile,playlists,likes}` and templates for
@@ -165,12 +166,13 @@ Shared API and MCP code lives in `src/{client,tools,types,server,icon}.ts`.
   Unit tests do not verify the deployed Workers runtime.
 
 See [CLAUDE.md](CLAUDE.md) for safety and verification rules and
-[PLAN.md](PLAN.md) for open work and the dated API audit. Use the
-`soundcloud-api-sync` skill before adding endpoints or checking upstream changes.
+[GitHub issues](https://github.com/jamiew/soundcloud-mcp/issues) for open work.
+Use the `soundcloud-api-sync` skill before adding endpoints or checking upstream
+changes. It records the synced-through date; issue #2 holds the coverage gaps.
 The standalone audit is:
 
 ```bash
-node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-07-19
+node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-09-16
 ```
 
 The [official spec](https://github.com/soundcloud/api) is authoritative. Track

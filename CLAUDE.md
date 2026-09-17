@@ -1,6 +1,8 @@
 # Agent guide
 
-See `README.md` for setup and `PLAN.md` for open work and the dated API audit.
+See `README.md` for setup and
+[GitHub issues](https://github.com/jamiew/soundcloud-mcp/issues) for open work.
+Issue #2 holds the dated API coverage gap list.
 
 ## Layout
 
@@ -29,8 +31,9 @@ SoundCloud's `Agents.md` in that repo, then the
 Use the `soundcloud-api-sync` skill before adding endpoints, when these rules
 conflict with observed behavior, or when asked about upstream changes. Check the
 spec, not memory: endpoints have disappeared without notice and return 405.
-Update `PLAN.md` coverage and its synced-through date after auditing. Do not copy
-patterns from the unmaintained official Ruby, Python, or JavaScript SDKs.
+After auditing, update the synced-through date in the skill's `SKILL.md` and the
+gap list in issue #2. Do not copy patterns from the unmaintained official Ruby,
+Python, or JavaScript SDKs.
 
 - API host: `https://api.soundcloud.com`. OAuth `/authorize` and `/oauth/token`:
   `https://secure.soundcloud.com`. Legacy `api.soundcloud.com/oauth2/token` is
@@ -53,7 +56,8 @@ patterns from the unmaintained official Ruby, Python, or JavaScript SDKs.
 - Playlist writes replace the entire tracklist. To append, read, concatenate,
   then PUT. Send track IDs above int32 (`2147483647`) as URN strings to avoid 422.
 - Track `access` is `playable`, `preview`, or `blocked`. Blocked tracks have no
-  stream. `/tracks/{urn}/streams` returns expiring URLs; `/stream` is deprecated.
+  stream. `/tracks/{urn}/streams` returns expiring HLS URLs plus an MP3 preview;
+  the progressive `http_mp3_128_url` and `/stream` are gone.
 
 ## Verification and safety
 
