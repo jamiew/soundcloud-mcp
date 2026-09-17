@@ -232,9 +232,7 @@ export class SoundCloudClient {
 	getMyLikes(limit: number, kind: LibraryKind = "tracks") {
 		return this.page<LibraryItem>(
 			kind === "playlists" ? "/me/likes/playlists" : "/me/likes/tracks",
-			{
-				limit,
-			}
+			{ limit }
 		);
 	}
 	getMyReposts(limit: number, kind: LibraryKind = "tracks") {
