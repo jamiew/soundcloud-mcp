@@ -1,0 +1,12 @@
+{
+	"mcpServers": {
+		"soundcloud-local": {
+			"type": "stdio",
+			"command": "node",
+			"args": [
+				"--env-file-if-exists=${CLAUDE_PROJECT_DIR:-.}/.env",
+				"${CLAUDE_PROJECT_DIR:-.}/build/index.js"
+			]
+		}
+	}
+}

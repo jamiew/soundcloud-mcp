@@ -44,6 +44,15 @@ rotating tokens to `~/.soundcloud-mcp/tokens.json` with mode `600`. Use
 `connect_soundcloud` and `auth_status` tools. Public search uses cached
 client-credentials tokens without user login.
 
+### Claude Code
+
+The repo's `.mcp.json` registers this server as `soundcloud-local`. Run
+`pnpm build`, fill in `.env` at the repo root, then start `claude` in the repo
+and approve the project server when prompted. Its paths use
+`${CLAUDE_PROJECT_DIR:-.}`, which falls back to `.` because Claude Code runs the
+server from the project root, so no absolute paths are needed. Login tokens
+still live in `~/.soundcloud-mcp/tokens.json`.
+
 ### Claude Desktop
 
 Open **Settings > Developer > Edit Config** and add:

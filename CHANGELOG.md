@@ -2,6 +2,8 @@
 
 ## 2026-09-17
 
+- Added a project `.mcp.json` so Claude Code can run the local server from any
+  clone as `soundcloud-local` without global setup.
 - Updated dependencies, TypeScript, Vitest, and CI actions. Requires Node 22.18+
   or 24.11+. Pinned pnpm and patched two vulnerable transitive dependencies.
 - Fixed the dev watch target, and made `pnpm verify` portable across clones and
