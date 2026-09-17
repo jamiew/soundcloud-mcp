@@ -49,9 +49,9 @@ client-credentials tokens without user login.
 The repo's `.mcp.json` registers this server as `soundcloud-local`. Run
 `pnpm build`, fill in `.env` at the repo root, then start `claude` in the repo
 and approve the project server when prompted. Its paths use
-`${CLAUDE_PROJECT_DIR:-.}`, which Claude Code resolves from the project root, so
-no absolute paths are needed. Login tokens still live in
-`~/.soundcloud-mcp/tokens.json`.
+`${CLAUDE_PROJECT_DIR:-.}`, which falls back to `.` because Claude Code runs the
+server from the project root, so no absolute paths are needed. Login tokens
+still live in `~/.soundcloud-mcp/tokens.json`.
 
 ### Claude Desktop
 
