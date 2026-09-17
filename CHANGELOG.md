@@ -22,6 +22,10 @@
 - Raised the worker compatibility date from 2025-03-10 to 2026-09-11. The
   runtime now provides `process`, `console`, `os`, `perf_hooks`, and `tty`, so
   the bundle no longer ships those polyfills.
+- Added social tools: artist links, track likers, track and playlist reposters,
+  followers and followings for any user, `get_my_followers`, `is_following`,
+  repost lists, and playlist like and repost pairs. The likes and reposts list
+  tools take `kind="playlists"`, and `get_feed` takes `kind="all"`.
 
 ## 2026-07-30
 

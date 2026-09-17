@@ -6,7 +6,7 @@ import {
 	SoundCloudAuthError,
 	type SoundCloudClient,
 } from "./client.js";
-import type { SoundCloudPlaylist, SoundCloudTrack, TrackStreams } from "./types.js";
+import type { SoundCloudPlaylist, SoundCloudTrack, TrackStreams, WebProfile } from "./types.js";
 
 type ContentBlock =
 	| { type: "text"; text: string }
@@ -40,6 +40,7 @@ const LIST_OUT = z.looseObject({ items: z.array(z.unknown()) });
 const id = z.union([z.string(), z.number()]);
 const limit = z.number().int().min(1).max(200).default(50);
 const trackSort = z.enum(["asc", "desc"]).optional();
+const libraryKind = z.enum(["tracks", "playlists"]).default("tracks");
 
 function ok(data: unknown, extra: ContentBlock[] = []): ToolResult {
 	const text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
@@ -124,6 +125,17 @@ function playlistLinks(playlist?: SoundCloudPlaylist): ContentBlock[] {
 			mimeType: "text/html",
 		},
 	];
+}
+
+function webProfileLinks(profiles: WebProfile[]): ContentBlock[] {
+	return profiles
+		.filter((profile) => profile.url)
+		.map((profile) => ({
+			type: "resource_link",
+			uri: profile.url,
+			name: profile.title || profile.service || profile.url,
+			mimeType: "text/html",
+		}));
 }
 
 // Full-length streams are HLS only; the MP3 preview is a snippet, so it comes
@@ -269,12 +281,60 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"get_user_likes",
 		{
 			title: "Get an artist's likes",
-			description: "List tracks a user has liked.",
-			inputSchema: { userId: id, limit },
+			description: "List tracks or playlists a user has liked.",
+			inputSchema: { userId: id, limit, kind: libraryKind },
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's likes", ...READ },
 		},
-		async ({ userId, limit: max }) => run(() => sc.getUserLikes(userId, max))
+		async ({ userId, limit: max, kind }) => run(() => sc.getUserLikes(userId, max, kind))
+	);
+
+	server.registerTool(
+		"get_user_reposts",
+		{
+			title: "Get an artist's reposts",
+			description: "List tracks or playlists a user has reposted.",
+			inputSchema: { userId: id, limit, kind: libraryKind },
+			outputSchema: PAGE_OUT,
+			annotations: { title: "Get an artist's reposts", ...READ },
+		},
+		async ({ userId, limit: max, kind }) => run(() => sc.getUserReposts(userId, max, kind))
+	);
+
+	server.registerTool(
+		"get_user_followers",
+		{
+			title: "Get an artist's followers",
+			description: "List the users who follow a user.",
+			inputSchema: { userId: id, limit },
+			outputSchema: PAGE_OUT,
+			annotations: { title: "Get an artist's followers", ...READ },
+		},
+		async ({ userId, limit: max }) => run(() => sc.getUserFollowers(userId, max))
+	);
+
+	server.registerTool(
+		"get_user_followings",
+		{
+			title: "Get who an artist follows",
+			description: "List the users a user follows.",
+			inputSchema: { userId: id, limit },
+			outputSchema: PAGE_OUT,
+			annotations: { title: "Get who an artist follows", ...READ },
+		},
+		async ({ userId, limit: max }) => run(() => sc.getUserFollowings(userId, max))
+	);
+
+	server.registerTool(
+		"get_user_web_profiles",
+		{
+			title: "Get an artist's links",
+			description: "List the external links on a user's profile, such as a website or socials.",
+			inputSchema: { userId: id, limit },
+			outputSchema: LIST_OUT,
+			annotations: { title: "Get an artist's links", ...READ },
+		},
+		async ({ userId, limit: max }) => run(() => sc.getUserWebProfiles(userId, max), webProfileLinks)
 	);
 
 	server.registerTool(
@@ -298,6 +358,18 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			annotations: { title: "Get playlist tracks", ...READ },
 		},
 		async ({ playlistId, limit: max }) => run(() => sc.getPlaylistTracks(playlistId, max))
+	);
+
+	server.registerTool(
+		"get_playlist_reposters",
+		{
+			title: "Get playlist reposters",
+			description: "List the users who reposted a playlist.",
+			inputSchema: { playlistId: id, limit },
+			outputSchema: PAGE_OUT,
+			annotations: { title: "Get playlist reposters", ...READ },
+		},
+		async ({ playlistId, limit: max }) => run(() => sc.getPlaylistReposters(playlistId, max))
 	);
 
 	server.registerTool(
@@ -349,6 +421,30 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 	);
 
 	server.registerTool(
+		"get_track_likers",
+		{
+			title: "Get track likers",
+			description: "List the users who liked a track.",
+			inputSchema: { trackId: id, limit },
+			outputSchema: PAGE_OUT,
+			annotations: { title: "Get track likers", ...READ },
+		},
+		async ({ trackId, limit: max }) => run(() => sc.getTrackLikers(trackId, max))
+	);
+
+	server.registerTool(
+		"get_track_reposters",
+		{
+			title: "Get track reposters",
+			description: "List the users who reposted a track.",
+			inputSchema: { trackId: id, limit },
+			outputSchema: PAGE_OUT,
+			annotations: { title: "Get track reposters", ...READ },
+		},
+		async ({ trackId, limit: max }) => run(() => sc.getTrackReposters(trackId, max))
+	);
+
+	server.registerTool(
 		"next_page",
 		{
 			title: "Next page",
@@ -375,12 +471,24 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"get_my_likes",
 		{
 			title: "Get my likes",
-			description: "List tracks the connected user has liked.",
-			inputSchema: { limit },
+			description: "List tracks or playlists the connected user has liked.",
+			inputSchema: { limit, kind: libraryKind },
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my likes", ...READ },
 		},
-		async ({ limit: max }) => run(() => sc.getMyLikes(max))
+		async ({ limit: max, kind }) => run(() => sc.getMyLikes(max, kind))
+	);
+
+	server.registerTool(
+		"get_my_reposts",
+		{
+			title: "Get my reposts",
+			description: "List tracks or playlists the connected user has reposted.",
+			inputSchema: { limit, kind: libraryKind },
+			outputSchema: PAGE_OUT,
+			annotations: { title: "Get my reposts", ...READ },
+		},
+		async ({ limit: max, kind }) => run(() => sc.getMyReposts(max, kind))
 	);
 
 	server.registerTool(
@@ -421,15 +529,41 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 	);
 
 	server.registerTool(
+		"get_my_followers",
+		{
+			title: "Get my followers",
+			description: "List the users who follow the connected user.",
+			inputSchema: { limit },
+			outputSchema: PAGE_OUT,
+			annotations: { title: "Get my followers", ...READ },
+		},
+		async ({ limit: max }) => run(() => sc.getMyFollowers(max))
+	);
+
+	server.registerTool(
+		"is_following",
+		{
+			title: "Check if I follow a user",
+			description:
+				"Check whether the connected user follows a user. Unknown users count as not followed.",
+			inputSchema: { userId: id },
+			outputSchema: z.looseObject({ following: z.boolean() }),
+			annotations: { title: "Check if I follow a user", ...READ },
+		},
+		async ({ userId }) => run(async () => ({ userId, following: await sc.isFollowing(userId) }))
+	);
+
+	server.registerTool(
 		"get_feed",
 		{
 			title: "Get my feed",
-			description: "List recent tracks from people the connected user follows.",
-			inputSchema: { limit },
+			description:
+				"List recent activity from people the connected user follows: tracks by default, or all for playlists too.",
+			inputSchema: { limit, kind: z.enum(["tracks", "all"]).default("tracks") },
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my feed", ...READ },
 		},
-		async ({ limit: max }) => run(() => sc.getFeed(max))
+		async ({ limit: max, kind }) => run(() => sc.getFeed(max, kind))
 	);
 
 	server.registerTool(
@@ -502,6 +636,66 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			run(async () => {
 				await sc.unrepostTrack(trackId);
 				return `Removed repost of track ${trackId}.`;
+			})
+	);
+
+	server.registerTool(
+		"like_playlist",
+		{
+			title: "Like playlist",
+			description: "Like a playlist.",
+			inputSchema: { playlistId: id },
+			annotations: { title: "Like playlist", ...WRITE, idempotentHint: true },
+		},
+		async ({ playlistId }) =>
+			run(async () => {
+				await sc.likePlaylist(playlistId);
+				return `Liked playlist ${playlistId}.`;
+			})
+	);
+
+	server.registerTool(
+		"unlike_playlist",
+		{
+			title: "Unlike playlist",
+			description: "Remove a like from a playlist.",
+			inputSchema: { playlistId: id },
+			annotations: { title: "Unlike playlist", ...WRITE, idempotentHint: true },
+		},
+		async ({ playlistId }) =>
+			run(async () => {
+				await sc.unlikePlaylist(playlistId);
+				return `Unliked playlist ${playlistId}.`;
+			})
+	);
+
+	server.registerTool(
+		"repost_playlist",
+		{
+			title: "Repost playlist",
+			description: "Repost a playlist to the user's followers.",
+			inputSchema: { playlistId: id },
+			annotations: { title: "Repost playlist", ...WRITE, idempotentHint: true },
+		},
+		async ({ playlistId }) =>
+			run(async () => {
+				await sc.repostPlaylist(playlistId);
+				return `Reposted playlist ${playlistId}.`;
+			})
+	);
+
+	server.registerTool(
+		"unrepost_playlist",
+		{
+			title: "Remove playlist repost",
+			description: "Remove a repost of a playlist.",
+			inputSchema: { playlistId: id },
+			annotations: { title: "Remove playlist repost", ...WRITE, idempotentHint: true },
+		},
+		async ({ playlistId }) =>
+			run(async () => {
+				await sc.unrepostPlaylist(playlistId);
+				return `Removed repost of playlist ${playlistId}.`;
 			})
 	);
 

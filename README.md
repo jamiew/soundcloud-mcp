@@ -142,14 +142,18 @@ Both servers share these tools. Only the local server exposes login tools.
 | --- | --- |
 | Local auth | `connect_soundcloud`, `auth_status`, `sign_out` |
 | Search | `resolve_url`, `search_tracks`, `search_playlists`, `search_users` |
-| Discovery | `get_track`, `get_user`, `get_user_tracks`, `get_user_playlists`, `get_user_likes`, `get_related_tracks`, `get_related_artists` |
+| Discovery | `get_track`, `get_user`, `get_user_tracks`, `get_user_playlists`, `get_user_likes`, `get_user_reposts`, `get_user_web_profiles`, `get_related_tracks`, `get_related_artists` |
+| Audience | `get_track_likers`, `get_track_reposters`, `get_playlist_reposters`, `get_user_followers`, `get_user_followings` |
 | Playback and browsing | `get_playlist`, `get_playlist_tracks`, `get_stream_url`, `get_comments`, `next_page` |
-| Library (login) | `get_profile`, `get_my_likes`, `get_my_playlists`, `get_my_tracks`, `get_my_followings`, `get_feed`, `get_recently_played` |
-| Social (login) | `like_track`, `unlike_track`, `repost_track`, `unrepost_track`, `follow_user`, `unfollow_user`, `add_comment` |
+| Library (login) | `get_profile`, `get_my_likes`, `get_my_reposts`, `get_my_playlists`, `get_my_tracks`, `get_my_followings`, `get_my_followers`, `is_following`, `get_feed`, `get_recently_played` |
+| Social (login) | `like_track`, `unlike_track`, `like_playlist`, `unlike_playlist`, `repost_track`, `unrepost_track`, `repost_playlist`, `unrepost_playlist`, `follow_user`, `unfollow_user`, `add_comment` |
 | Playlists (login) | `create_playlist`, `update_playlist`, `add_tracks_to_playlist`, `remove_track_from_playlist`, `delete_playlist` |
 
 - IDs accept numbers or URNs such as `soundcloud:tracks:123`; prefer URNs.
 - `get_user_tracks` and `get_my_tracks` accept `sort="asc"` or `sort="desc"`.
+- The likes and reposts list tools accept `kind="tracks"` (default) or
+  `kind="playlists"`. `get_feed` accepts `kind="all"` to include playlist
+  activity.
 - Pass `next_href` to `next_page` for cursor pagination. Use SoundCloud API URLs
   only; authenticated requests include your token.
 - Playlist track changes replace the full tracklist. Comments have no delete
@@ -169,8 +173,8 @@ Shared API and MCP code lives in `src/{client,tools,types,server,icon}.ts`.
 
 - `pnpm check`: lint, Markdown lint, both typechecks, and unit tests.
 - `pnpm verify`: build and check the live stdio server, including read tools,
-  resources, and a temporary playlist create/read/delete cycle. Requires login
-  and writes to the connected account.
+  resources, and a temporary playlist create/like/read/delete cycle. Requires
+  login and writes to the connected account.
 - `pnpm exec wrangler deploy --dry-run`: bundle the worker without deploying.
   Unit tests do not verify the deployed Workers runtime.
 
