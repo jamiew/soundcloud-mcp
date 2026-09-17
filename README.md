@@ -172,7 +172,7 @@ changes. It records the synced-through date; issue #2 holds the coverage gaps.
 The standalone audit is:
 
 ```bash
-node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-09-17
+node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-09-16
 ```
 
 The [official spec](https://github.com/soundcloud/api) is authoritative. Track

@@ -14,7 +14,7 @@ re-derives what is true from the official sources.
 
 ```bash
 node .claude/skills/soundcloud-api-sync/audit.mjs                  # latest 8 releases
-node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-09-17
+node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-09-16
 ```
 
 It fetches the live spec and prints three things:
@@ -25,7 +25,7 @@ It fetches the live spec and prints three things:
   a candidate for the silent 405 treatment; verify it live before trusting it.
 - **RELEASES** — dated release-note headlines.
 
-**Synced through: 2026-09-17.**
+**Synced through: 2026-09-16.**
 
 Pass `--since` with that date to see only what is new, then update it here when
 done. The coverage gap list lives in
