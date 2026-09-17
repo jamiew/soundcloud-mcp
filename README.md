@@ -8,9 +8,9 @@ One package supports two transports:
 
 | | Local server | Cloudflare Worker |
 | --- | --- | --- |
-| Transport | stdio | Streamable HTTP (`/mcp`), legacy SSE (`/sse`) |
+| Transport | stdio | Streamable HTTP (`/mcp`) |
 | Auth | App credentials; user login for personal data | Browser OAuth for every user |
-| Token storage | Local file | OAuth grant in KV; not the session Durable Object |
+| Token storage | Local file | OAuth grant in KV |
 | Client setup | Run `build/index.js` | Connect to the worker URL |
 
 The [hosted worker](https://soundcloud-mcp.jamie-7e9.workers.dev) is allowlisted.
@@ -105,7 +105,8 @@ The config file is at:
    ```
 
    Put the returned ID in `wrangler.jsonc` under the `OAUTH_KV` binding.
-   Keep the Durable Object binding and migrations.
+   Keep the `migrations` block; on existing deployments it removes the old
+   `SoundCloudMCP` Durable Object.
 3. Set each secret with `pnpm exec wrangler secret put <NAME>`:
    - `SOUNDCLOUD_CLIENT_ID`
    - `SOUNDCLOUD_CLIENT_SECRET`
@@ -132,7 +133,7 @@ SoundCloud's terms and shared rate limits; see
 [#1](https://github.com/jamiew/soundcloud-mcp/issues/1).
 
 The worker serves an install page at `/`, an icon at `/icon.svg`, and OAuth at
-`/authorize`, `/callback`, `/token`, and `/register`. `/sse` supports older clients.
+`/authorize`, `/callback`, `/token`, and `/register`.
 
 ## Tools
 

@@ -26,6 +26,10 @@
   followers and followings for any user, `get_my_followers`, `is_following`,
   repost lists, and playlist like and repost pairs. The likes and reposts list
   tools take `kind="playlists"`, and `get_feed` takes `kind="all"`.
+- Replaced the worker's `McpAgent` Durable Object with a stateless per-request
+  handler, so rotated tokens apply on the next request. Removed the legacy
+  `/sse` route; connect to `/mcp`. Deploying applies a `deleted_classes`
+  migration for `SoundCloudMCP`.
 
 ## 2026-07-30
 
