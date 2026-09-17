@@ -175,9 +175,9 @@ if (seed) {
 		const tracks = await call("get_playlist_tracks", { playlistId: pid, limit: 5 });
 		check("get_playlist_tracks", tracks.ok, `${tracks.structured?.collection?.length ?? 0} tracks`);
 
-		// SoundCloud may refuse likes on your own private playlist, so this pair
-		// is reported as a warning rather than a failure. Never repost it: that
-		// would broadcast a temporary playlist to followers.
+		// SoundCloud returns 404 when you like your own private playlist (checked
+		// 2026-09-17; the pair works on public playlists), so this is a warning,
+		// not a failure. Never repost it: that would broadcast a temporary playlist.
 		const liked = await call("like_playlist", { playlistId: pid });
 		const unliked = liked.ok ? await call("unlike_playlist", { playlistId: pid }) : liked;
 		const pairOk = liked.ok && unliked.ok;
