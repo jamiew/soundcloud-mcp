@@ -2,6 +2,7 @@
 // PKCE is mandatory, and refresh tokens are single-use — every refresh returns
 // a new one that must replace the old.
 
+import { z } from "zod";
 import type { OAuthTokenResponse } from "../types.js";
 
 // Token + authorize endpoints live on secure.soundcloud.com. SoundCloud's own
@@ -9,17 +10,19 @@ import type { OAuthTokenResponse } from "../types.js";
 export const AUTH_BASE = "https://secure.soundcloud.com";
 
 /**
- * Context captured at authorization time, encrypted into the issued MCP token
- * and handed to the McpAgent as `this.props`.
+ * Context captured at authorization time, encrypted into the OAuth grant and
+ * handed to the MCP handler as `ctx.props` on every request.
  */
-export type Props = {
-	userId: string;
-	username: string;
-	accessToken: string;
-	refreshToken: string;
+export const PropsSchema = z.looseObject({
+	userId: z.string(),
+	username: z.string(),
+	accessToken: z.string(),
+	refreshToken: z.string(),
 	/** Epoch milliseconds. */
-	expiresAt: number;
-};
+	expiresAt: z.number(),
+});
+
+export type Props = z.infer<typeof PropsSchema>;
 
 export interface Tokens {
 	accessToken: string;

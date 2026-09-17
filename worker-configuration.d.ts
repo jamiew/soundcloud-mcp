@@ -2,8 +2,6 @@
 interface WorkerBindings {
 	/** OAuth grants, tokens, clients, state, and PKCE verifiers. */
 	OAUTH_KV: KVNamespace;
-	/** SoundCloudMCP Durable Objects. */
-	MCP_OBJECT: DurableObjectNamespace;
 	/** SoundCloud client ID. Set with `pnpm exec wrangler secret put`. */
 	SOUNDCLOUD_CLIENT_ID: string;
 	/** SoundCloud client secret. Set with `pnpm exec wrangler secret put`. */

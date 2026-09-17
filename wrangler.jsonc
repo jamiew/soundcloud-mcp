@@ -15,16 +15,12 @@
 		{
 			"tag": "v1",
 			"new_sqlite_classes": ["SoundCloudMCP"]
+		},
+		{
+			"tag": "v2",
+			"deleted_classes": ["SoundCloudMCP"]
 		}
 	],
-	"durable_objects": {
-		"bindings": [
-			{
-				"name": "MCP_OBJECT",
-				"class_name": "SoundCloudMCP"
-			}
-		]
-	},
 	"workers_dev": true,
 	"kv_namespaces": [
 		{
