@@ -1,12 +1,15 @@
 # Changelog
 
-## 2026-09-14
+## 2026-09-17
 
 - Updated dependencies, TypeScript, Vitest, and CI actions. Requires Node 22.18+
   or 24.11+. Pinned pnpm and patched two vulnerable transitive dependencies.
-- Fixed the dev watch target and removed a hardcoded path from live verification.
-- Shortened docs, tool descriptions, prompts, and worker pages. API errors no
-  longer expose upstream response details.
+- Fixed the dev watch target, and made `pnpm verify` portable across clones and
+  exit non-zero when a check fails.
+- Shortened docs, tool descriptions, prompts, and worker pages. Fixed invalid
+  heading markup on the consent page.
+- Errors returned to clients and browsers no longer include upstream response
+  bodies or exception text; details are logged server-side.
 - Worker OAuth now requires S256 PKCE for public clients.
 
 ## 2026-07-30

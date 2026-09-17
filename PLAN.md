@@ -19,6 +19,12 @@ Track current status in [GitHub issues](https://github.com/jamiew/soundcloud-mcp
 - [#8](https://github.com/jamiew/soundcloud-mcp/issues/8): confirm worker auth
   survives token expiry across sessions. The fix gives the OAuth grant sole
   ownership of refreshes, not the per-session Durable Object.
+- [#9](https://github.com/jamiew/soundcloud-mcp/issues/9): refresh the API audit
+  below; do this before expanding coverage.
+- [#10](https://github.com/jamiew/soundcloud-mcp/issues/10): plan a path off
+  `McpAgent`, which upstream has deprecated and feature-frozen.
+- [#11](https://github.com/jamiew/soundcloud-mcp/issues/11): raise the worker
+  compatibility date, currently 2025-03-10.
 
 Track sorting ([#3](https://github.com/jamiew/soundcloud-mcp/issues/3)) is
 implemented: `get_user_tracks` and `get_my_tracks` accept `sort=asc|desc`.
