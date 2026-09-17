@@ -499,7 +499,7 @@ export function renderApprovalDialog(request: Request, options: ApprovalDialogOp
 
           <div class="card">
 
-            <h2 class="alert"><strong>${clientName || "A new MCP Client"}</strong> is requesting access</h1>
+            <h2 class="alert"><strong>${clientName || "A new MCP Client"}</strong> is requesting access</h2>
 
             <div class="client-info">
               <div class="client-detail">
@@ -579,7 +579,7 @@ export function renderApprovalDialog(request: Request, options: ApprovalDialogOp
 							}
             </div>
 
-            <p>This MCP Client is requesting to be authorized on ${serverName}. If you approve, you will be redirected to complete authentication.</p>
+            <p>Approve to continue to SoundCloud.</p>
 
             <form method="post" action="${new URL(request.url).pathname}">
               <input type="hidden" name="state" value="${encodedState}">

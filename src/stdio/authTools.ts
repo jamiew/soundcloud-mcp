@@ -20,7 +20,7 @@ export function registerAuthTools(server: McpServer, sc: SoundCloudClient): void
 					content: [
 						{
 							type: "text" as const,
-							text: `Connected as ${me.username} (id ${me.id}). Token refreshes automatically after ${token.expires_in}s.`,
+							text: `Connected as ${me.username} (id ${me.id}). Token expires in ${token.expires_in}s and refreshes automatically.`,
 						},
 					],
 				};

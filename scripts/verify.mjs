@@ -120,6 +120,7 @@ if (seed) {
 // Check MCP metadata, resources, and templates.
 const info = client.getServerVersion();
 check("server metadata", !!(info.title && info.description && info.icons?.length), info.title);
+check("instructions", (client.getInstructions() ?? "").includes("next_page"));
 
 const { resources } = await client.listResources();
 check("list resources", resources.length === 3, resources.map((r) => r.uri).join(", "));
@@ -135,5 +136,8 @@ if (track?.id) {
 
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);
-if (failed.length) console.log("failed:", failed.map((f) => f.name).join(", "));
+if (failed.length) {
+	console.log("failed:", failed.map((f) => f.name).join(", "));
+	process.exitCode = 1;
+}
 await client.close();
