@@ -42,6 +42,10 @@ function createServer(workerEnv: Env, props: Props | undefined): McpServer {
 
 const mcpHandler = {
 	fetch(request: Request, workerEnv: Env, ctx: ExecutionContext) {
+		// A per-request server can never write to a standalone listen stream.
+		if (request.method === "GET") {
+			return new Response(null, { status: 405, headers: { Allow: "POST, OPTIONS" } });
+		}
 		const server = createServer(workerEnv, PropsSchema.safeParse(ctx.props).data);
 		// No session id: the SDK v1 transport then serves each request on its own.
 		return createLegacyMcpHandler(server, { route: "/mcp", sessionIdGenerator: undefined })(

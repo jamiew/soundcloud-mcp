@@ -45,7 +45,8 @@ Python, or JavaScript SDKs.
   authorize again. Only one component may refresh a token.
 - The worker's sole refresh owner is `tokenExchangeCallback` in `worker.ts`.
   Write rotated tokens back to the OAuth grant so future sessions receive them.
-  Never refresh or own token state in the per-session Durable Object.
+  Never refresh inside the `/mcp` handler; it only reads the props that
+  OAuthProvider decrypts into `ctx.props` for each request.
 - OAuth 2.1 requires PKCE. Preserve the verifier across redirects; the worker
   stores it in KV under the OAuth state token.
 - Cache client-credentials tokens: limits are 50 per 12 hours per app and 30 per
