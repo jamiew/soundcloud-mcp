@@ -57,6 +57,16 @@ export interface SoundCloudComment {
 	user: SoundCloudUser;
 }
 
+/** An external link on a profile, from /users/{urn}/web-profiles. */
+export interface WebProfile {
+	urn: string;
+	service: string;
+	title: string;
+	url: string;
+	username?: string;
+	created_at: string;
+}
+
 // /me/feed/tracks returns activity wrappers, not bare tracks: each entry has a
 // `type` like "track" or "track:repost" and carries the track inside.
 export interface FeedItem {

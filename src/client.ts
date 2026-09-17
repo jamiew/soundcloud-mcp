@@ -8,6 +8,7 @@ import type {
 	SoundCloudTrack,
 	SoundCloudUser,
 	TrackStreams,
+	WebProfile,
 } from "./types.js";
 
 export const API_BASE = "https://api.soundcloud.com";
@@ -52,6 +53,9 @@ export function toUrn(kind: "tracks" | "users" | "playlists", idOrUrn: string | 
 
 type Query = Record<string, string | number | boolean | undefined>;
 type TrackSort = "asc" | "desc";
+/** Likes and reposts are split by entity: /likes/tracks vs /likes/playlists. */
+type LibraryKind = "tracks" | "playlists";
+type LibraryItem = SoundCloudTrack | SoundCloudPlaylist;
 
 interface RequestSpec {
 	method?: "GET" | "POST" | "PUT" | "DELETE";
@@ -170,14 +174,49 @@ export class SoundCloudClient {
 	getUserPlaylists(id: string | number, limit: number) {
 		return this.page<SoundCloudPlaylist>(`/users/${toUrn("users", id)}/playlists`, { limit });
 	}
-	getUserLikes(id: string | number, limit: number) {
-		return this.page<SoundCloudTrack>(`/users/${toUrn("users", id)}/likes/tracks`, { limit });
+	// Paths are spelled out per kind so the api-sync audit can match each literal.
+	getUserLikes(id: string | number, limit: number, kind: LibraryKind = "tracks") {
+		const user = toUrn("users", id);
+		return this.page<LibraryItem>(
+			kind === "playlists" ? `/users/${user}/likes/playlists` : `/users/${user}/likes/tracks`,
+			{ limit }
+		);
+	}
+	getUserReposts(id: string | number, limit: number, kind: LibraryKind = "tracks") {
+		const user = toUrn("users", id);
+		return this.page<LibraryItem>(
+			kind === "playlists" ? `/users/${user}/reposts/playlists` : `/users/${user}/reposts/tracks`,
+			{ limit }
+		);
+	}
+	getUserFollowers(id: string | number, limit: number) {
+		return this.page<SoundCloudUser>(`/users/${toUrn("users", id)}/followers`, { limit });
+	}
+	getUserFollowings(id: string | number, limit: number) {
+		return this.page<SoundCloudUser>(`/users/${toUrn("users", id)}/followings`, { limit });
+	}
+	getUserWebProfiles(id: string | number, limit: number) {
+		return this.request<WebProfile[]>(`/users/${toUrn("users", id)}/web-profiles`, {
+			query: { limit },
+		});
 	}
 	getTrackStreams(id: string | number) {
 		return this.request<TrackStreams>(`/tracks/${toUrn("tracks", id)}/streams`);
 	}
 	getComments(id: string | number, limit: number) {
 		return this.page<SoundCloudComment>(`/tracks/${toUrn("tracks", id)}/comments`, { limit });
+	}
+	/** SoundCloud still calls likers "favoriters" in this path. */
+	getTrackLikers(id: string | number, limit: number) {
+		return this.page<SoundCloudUser>(`/tracks/${toUrn("tracks", id)}/favoriters`, { limit });
+	}
+	getTrackReposters(id: string | number, limit: number) {
+		return this.page<SoundCloudUser>(`/tracks/${toUrn("tracks", id)}/reposters`, { limit });
+	}
+	getPlaylistReposters(id: string | number, limit: number) {
+		return this.page<SoundCloudUser>(`/playlists/${toUrn("playlists", id)}/reposters`, {
+			limit,
+		});
 	}
 	/** Turns a soundcloud.com permalink into the underlying API resource. */
 	resolve(url: string) {
@@ -190,8 +229,19 @@ export class SoundCloudClient {
 	getMe() {
 		return this.request<SoundCloudUser>("/me");
 	}
-	getMyLikes(limit: number) {
-		return this.page<SoundCloudTrack>("/me/likes/tracks", { limit });
+	getMyLikes(limit: number, kind: LibraryKind = "tracks") {
+		return this.page<LibraryItem>(
+			kind === "playlists" ? "/me/likes/playlists" : "/me/likes/tracks",
+			{
+				limit,
+			}
+		);
+	}
+	getMyReposts(limit: number, kind: LibraryKind = "tracks") {
+		return this.page<LibraryItem>(
+			kind === "playlists" ? "/me/reposts/playlists" : "/me/reposts/tracks",
+			{ limit }
+		);
 	}
 	getMyPlaylists(limit: number) {
 		return this.page<SoundCloudPlaylist>("/me/playlists", { limit });
@@ -202,9 +252,23 @@ export class SoundCloudClient {
 	getMyFollowings(limit: number) {
 		return this.page<SoundCloudUser>("/me/followings", { limit });
 	}
+	getMyFollowers(limit: number) {
+		return this.page<SoundCloudUser>("/me/followers", { limit });
+	}
+	// The spec deprecates this read in favor of /users/{urn}, which cannot
+	// answer the follow question. 404 means "not followed" (or no such user).
+	async isFollowing(id: string | number): Promise<boolean> {
+		try {
+			await this.request<SoundCloudUser>(`/me/followings/${toUrn("users", id)}`);
+			return true;
+		} catch (error) {
+			if (error instanceof SoundCloudApiError && error.status === 404) return false;
+			throw error;
+		}
+	}
 	/** New tracks from people you follow — the closest thing to a home feed. */
-	getFeed(limit: number) {
-		return this.page<FeedItem>("/me/feed/tracks", { limit });
+	getFeed(limit: number, kind: "tracks" | "all" = "tracks") {
+		return this.page<FeedItem>(kind === "all" ? "/me/feed" : "/me/feed/tracks", { limit });
 	}
 	/** This endpoint ignores `limit` and returns the whole history, so it is trimmed here. */
 	async getRecentlyPlayed(limit: number) {
@@ -224,6 +288,20 @@ export class SoundCloudClient {
 	}
 	unrepostTrack(id: string | number) {
 		return this.request<void>(`/reposts/tracks/${toUrn("tracks", id)}`, { method: "DELETE" });
+	}
+	likePlaylist(id: string | number) {
+		return this.request<void>(`/likes/playlists/${toUrn("playlists", id)}`, { method: "POST" });
+	}
+	unlikePlaylist(id: string | number) {
+		return this.request<void>(`/likes/playlists/${toUrn("playlists", id)}`, { method: "DELETE" });
+	}
+	repostPlaylist(id: string | number) {
+		return this.request<void>(`/reposts/playlists/${toUrn("playlists", id)}`, { method: "POST" });
+	}
+	unrepostPlaylist(id: string | number) {
+		return this.request<void>(`/reposts/playlists/${toUrn("playlists", id)}`, {
+			method: "DELETE",
+		});
 	}
 	followUser(id: string | number) {
 		return this.request<void>(`/me/followings/${toUrn("users", id)}`, { method: "PUT" });

@@ -122,6 +122,33 @@ describe("SoundCloudClient", () => {
 		expect(calls[1]?.url).toContain("sort=asc");
 	});
 
+	it("splits likes and reposts by kind, defaulting to tracks", async () => {
+		const { impl, calls } = stubFetch(Array.from({ length: 4 }, () => json({ collection: [] })));
+		const client = new SoundCloudClient(tokens().provider, undefined, impl);
+
+		await client.getMyLikes(10);
+		await client.getMyReposts(10, "playlists");
+		await client.getUserLikes(42, 10, "playlists");
+		await client.getUserReposts(42, 10);
+
+		expect(calls.map((c) => new URL(c.url).pathname)).toEqual([
+			"/me/likes/tracks",
+			"/me/reposts/playlists",
+			"/users/soundcloud:users:42/likes/playlists",
+			"/users/soundcloud:users:42/reposts/tracks",
+		]);
+	});
+
+	it("reads follow status from a 200 or 404", async () => {
+		const { impl, calls } = stubFetch([json({ id: 42 }), json({}, 404)]);
+		const client = new SoundCloudClient(tokens().provider, undefined, impl);
+
+		await expect(client.isFollowing(42)).resolves.toBe(true);
+		await expect(client.isFollowing(43)).resolves.toBe(false);
+
+		expect(calls[0]?.url).toBe("https://api.soundcloud.com/me/followings/soundcloud:users:42");
+	});
+
 	it("follows a next_href cursor as an absolute URL", async () => {
 		const { impl, calls } = stubFetch([json({ collection: [] })]);
 		const client = new SoundCloudClient(tokens().provider, undefined, impl);

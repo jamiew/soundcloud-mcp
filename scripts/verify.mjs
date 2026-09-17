@@ -60,6 +60,20 @@ if (track?.urn) {
 
 	const comments = await call("get_comments", { trackId: track.urn, limit: 2 });
 	check("get_comments", comments.ok);
+
+	const likers = await call("get_track_likers", { trackId: track.urn, limit: 3 });
+	check("get_track_likers", likers.ok, first(likers)?.username);
+
+	const reposters = await call("get_track_reposters", { trackId: track.urn, limit: 3 });
+	check("get_track_reposters", reposters.ok, first(reposters)?.username);
+}
+
+const playlists = await call("search_playlists", { query: "aphex twin", limit: 1 });
+const playlist = first(playlists);
+check("search_playlists", playlists.ok && !!playlist, playlist?.title);
+if (playlist?.urn) {
+	const reposters = await call("get_playlist_reposters", { playlistId: playlist.urn, limit: 3 });
+	check("get_playlist_reposters", reposters.ok, first(reposters)?.username);
 }
 
 if (user?.urn) {
@@ -68,6 +82,32 @@ if (user?.urn) {
 
 	const userLikes = await call("get_user_likes", { userId: user.urn, limit: 3 });
 	check("get_user_likes", userLikes.ok, first(userLikes)?.title);
+
+	const likedPlaylists = await call("get_user_likes", {
+		userId: user.urn,
+		limit: 3,
+		kind: "playlists",
+	});
+	check("get_user_likes (playlists)", likedPlaylists.ok, first(likedPlaylists)?.title);
+
+	const reposts = await call("get_user_reposts", { userId: user.urn, limit: 3 });
+	check("get_user_reposts", reposts.ok, first(reposts)?.title);
+
+	const playlistReposts = await call("get_user_reposts", {
+		userId: user.urn,
+		limit: 3,
+		kind: "playlists",
+	});
+	check("get_user_reposts (playlists)", playlistReposts.ok, first(playlistReposts)?.title);
+
+	const followers = await call("get_user_followers", { userId: user.urn, limit: 3 });
+	check("get_user_followers", followers.ok, first(followers)?.username);
+
+	const userFollowings = await call("get_user_followings", { userId: user.urn, limit: 3 });
+	check("get_user_followings", userFollowings.ok, first(userFollowings)?.username);
+
+	const links = await call("get_user_web_profiles", { userId: user.urn, limit: 5 });
+	check("get_user_web_profiles", links.ok, first(links)?.url);
 
 	const relatedArtists = await call("get_related_artists", { userId: user.urn, limit: 3 });
 	check("get_related_artists", relatedArtists.ok, first(relatedArtists)?.username);
@@ -80,14 +120,36 @@ check("get_profile", profile.ok, profile.structured?.username);
 const likes = await call("get_my_likes", { limit: 3 });
 check("get_my_likes", likes.ok, first(likes)?.track?.title ?? first(likes)?.title);
 
+const myLikedPlaylists = await call("get_my_likes", { limit: 3, kind: "playlists" });
+check("get_my_likes (playlists)", myLikedPlaylists.ok, first(myLikedPlaylists)?.title);
+
+check("get_my_reposts", (await call("get_my_reposts", { limit: 3 })).ok);
+check(
+	"get_my_reposts (playlists)",
+	(await call("get_my_reposts", { limit: 3, kind: "playlists" })).ok
+);
+
 check("get_my_playlists", (await call("get_my_playlists", { limit: 3 })).ok);
 check("get_my_tracks", (await call("get_my_tracks", { limit: 3 })).ok);
 
 const followings = await call("get_my_followings", { limit: 3 });
 check("get_my_followings", followings.ok, first(followings)?.username);
 
+const myFollowers = await call("get_my_followers", { limit: 3 });
+check("get_my_followers", myFollowers.ok, first(myFollowers)?.username);
+
+// A followed user must read as followed; the spec deprecates this endpoint.
+const followed = first(followings);
+if (followed?.urn) {
+	const status = await call("is_following", { userId: followed.urn });
+	check("is_following", status.ok && status.structured?.following === true, followed.username);
+}
+
 const feed = await call("get_feed", { limit: 3 });
 check("get_feed", feed.ok, first(feed)?.title ?? feed.text.slice(0, 60));
+
+const fullFeed = await call("get_feed", { limit: 3, kind: "all" });
+check("get_feed (all)", fullFeed.ok, first(fullFeed)?.type ?? fullFeed.text.slice(0, 60));
 
 const recent = await call("get_recently_played", { limit: 3 });
 check("get_recently_played", recent.ok, first(recent)?.title ?? recent.text.slice(0, 60));
@@ -112,6 +174,17 @@ if (seed) {
 	if (pid) {
 		const tracks = await call("get_playlist_tracks", { playlistId: pid, limit: 5 });
 		check("get_playlist_tracks", tracks.ok, `${tracks.structured?.collection?.length ?? 0} tracks`);
+
+		// SoundCloud may refuse likes on your own private playlist, so this pair
+		// is reported as a warning rather than a failure. Never repost it: that
+		// would broadcast a temporary playlist to followers.
+		const liked = await call("like_playlist", { playlistId: pid });
+		const unliked = liked.ok ? await call("unlike_playlist", { playlistId: pid }) : liked;
+		const pairOk = liked.ok && unliked.ok;
+		console.log(
+			`${pairOk ? "PASS" : "WARN"}  like_playlist + unlike_playlist${pairOk ? "" : ` — ${unliked.text.slice(0, 80)}`}`
+		);
+
 		const del = await call("delete_playlist", { playlistId: pid });
 		check("delete_playlist (cleanup)", del.ok);
 	}
