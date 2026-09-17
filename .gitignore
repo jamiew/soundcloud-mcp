@@ -6,15 +6,12 @@ node_modules/
 .dev.vars
 .dev.vars.*
 !.dev.vars.example
-prompts/
 *.log
-coverage/
-
-# scratch token file written by tokenStore tests
 .tmp-test-tokens.json
-
-# reference repos cloned for comparison
+coverage/
+docs/
 tmp/
+prompts/
 
 # symlink to the sibling Spotify worker, kept for reference while porting
 spotify-mcp-cloudflare
