@@ -5,6 +5,7 @@ MCP clients like Claude Code and ChatGPT.
 
 Here's an example:
 
+<!-- markdownlint-disable-next-line MD034 -->
 https://github.com/user-attachments/assets/89625322-d329-46ef-9987-e25396b68c23
 
 This integration is unofficial and not affiliated with SoundCloud.
