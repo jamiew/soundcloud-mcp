@@ -1,8 +1,7 @@
-<img width="3200" height="1000" alt="masthead-v1@2x" src="https://github.com/user-attachments/assets/c1820e55-1d87-418a-9638-61a3b978b7ba" />
 # SoundCloud MCP Server
 
 Search SoundCloud, discover music, manage playlists, and use your library from an
-MCP client like Claude or ChatGPT.
+MCP clients like Claude Code and ChatGPT.
 
 Here's an example:
 
@@ -10,17 +9,9 @@ https://github.com/user-attachments/assets/89625322-d329-46ef-9987-e25396b68c23
 
 This integration is unofficial and not affiliated with SoundCloud.
 
-This package supports two transports:
+This package supports both stdio transport (run locally) and streaming HTTP (e.g. run on Cloudflare so can you use on phone)
 
-| | Local server | Cloudflare Worker |
-| --- | --- | --- |
-| Transport | stdio | Streamable HTTP (`/mcp`) |
-| Auth | App credentials; user login for personal data | Browser OAuth for every user |
-| Token storage | Local file | OAuth grant in KV |
-| Client setup | Run `build/index.js` | Connect to the worker URL |
-
-The [hosted worker](https://soundcloud-mcp.jamie-7e9.workers.dev) is allowlisted.
-Deploy your own for other accounts.
+You have to deploy this to Cloudflare yourself. We don't manage a shared instance at this time.
 
 ## Local setup
 
