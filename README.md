@@ -1,10 +1,16 @@
+<img width="3200" height="1000" alt="masthead-v1@2x" src="https://github.com/user-attachments/assets/c1820e55-1d87-418a-9638-61a3b978b7ba" />
 # SoundCloud MCP Server
 
 Search SoundCloud, discover music, manage playlists, and use your library from an
-MCP client. This unofficial integration is not affiliated with SoundCloud. Follow
-[SoundCloud's API terms](https://developers.soundcloud.com/docs/api/terms-of-use).
+MCP client like Claude or ChatGPT.
 
-One package supports two transports:
+Here's an example:
+
+https://github.com/user-attachments/assets/89625322-d329-46ef-9987-e25396b68c23
+
+This integration is unofficial and not affiliated with SoundCloud.
+
+This package supports two transports:
 
 | | Local server | Cloudflare Worker |
 | --- | --- | --- |
