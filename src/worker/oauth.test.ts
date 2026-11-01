@@ -43,7 +43,7 @@ describe("isAccountAllowed", () => {
 		expect(isAccountAllowed(["jamiedubs"], "")).toBe(true);
 	});
 
-	it("matches usernames and ids case-insensitively", () => {
+	it("matches profile URL slugs and ids case-insensitively", () => {
 		expect(isAccountAllowed(["JamieDubs", "34532"], "jamiedubs")).toBe(true);
 		expect(isAccountAllowed(["someone", "34532"], "jamiedubs, 34532")).toBe(true);
 	});

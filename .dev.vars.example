@@ -3,5 +3,5 @@
 SOUNDCLOUD_CLIENT_ID="your-soundcloud-client-id"
 SOUNDCLOUD_CLIENT_SECRET="your-soundcloud-client-secret"
 COOKIE_ENCRYPTION_KEY="run: openssl rand -hex 32"
-# Optional: comma-separated allowlist of SoundCloud usernames or ids. Empty = open to anyone.
+# Optional: comma-separated profile URL slugs or numeric user ids. Empty = open to anyone.
 ALLOWED_USERS=""

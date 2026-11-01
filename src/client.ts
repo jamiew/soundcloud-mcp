@@ -74,6 +74,10 @@ export class SoundCloudClient {
 
 	async request<T>(path: string, spec: RequestSpec = {}): Promise<T> {
 		const url = path.startsWith("http") ? new URL(path) : new URL(this.baseUrl + path);
+		// Every request carries the user's token, so never send one off the API host.
+		if (url.origin !== new URL(this.baseUrl).origin) {
+			throw new SoundCloudApiError("Only SoundCloud API URLs are allowed.", 400);
+		}
 		for (const [key, value] of Object.entries(spec.query ?? {})) {
 			if (value !== undefined) url.searchParams.set(key, String(value));
 		}

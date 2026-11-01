@@ -73,7 +73,7 @@ export async function getClientCredentialsToken(): Promise<OAuthToken> {
 	});
 }
 
-export async function refreshToken(refresh_token: string): Promise<StoredToken> {
+async function requestRefresh(refresh_token: string): Promise<StoredToken> {
 	const token = await tokenRequest(
 		new URLSearchParams({
 			grant_type: "refresh_token",
@@ -83,6 +83,16 @@ export async function refreshToken(refresh_token: string): Promise<StoredToken> 
 		})
 	);
 	return saveTokens(token);
+}
+
+// Refresh tokens are single-use, so parallel tool calls must share one refresh.
+let refreshing: Promise<StoredToken> | null = null;
+
+function refreshToken(refresh_token: string): Promise<StoredToken> {
+	refreshing ??= requestRefresh(refresh_token).finally(() => {
+		refreshing = null;
+	});
+	return refreshing;
 }
 
 export async function signOut(accessToken: string): Promise<void> {

@@ -109,7 +109,8 @@ The config file is at:
    - `SOUNDCLOUD_CLIENT_ID`
    - `SOUNDCLOUD_CLIENT_SECRET`
    - `COOKIE_ENCRYPTION_KEY`: generate with `openssl rand -hex 32`
-   - `ALLOWED_USERS`: comma-separated SoundCloud usernames or numeric IDs
+   - `ALLOWED_USERS`: comma-separated profile URL slugs (the `name` in
+     `soundcloud.com/name`) or numeric user IDs. Display names do not match.
 4. Register `https://<your-worker>.workers.dev/callback` on your SoundCloud app.
    It must match exactly.
 5. Run `pnpm worker:deploy`, then connect your MCP client to

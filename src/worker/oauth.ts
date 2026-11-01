@@ -16,6 +16,8 @@ export const AUTH_BASE = "https://secure.soundcloud.com";
 export const PropsSchema = z.looseObject({
 	userId: z.string(),
 	username: z.string(),
+	/** Missing from grants issued before the allowlist stopped matching display names. */
+	permalink: z.string().optional(),
 	accessToken: z.string(),
 	refreshToken: z.string(),
 	/** Epoch milliseconds. */
@@ -128,8 +130,9 @@ export async function refreshTokens(opts: {
 
 /**
  * Access control by SoundCloud account. `allowedRaw` is the ALLOWED_USERS
- * secret: a comma-separated list of usernames and/or numeric user ids. Empty
- * or unset means any SoundCloud account may connect.
+ * secret: a comma-separated list of profile URL slugs and/or numeric user ids.
+ * Never pass display names: they are not unique. Empty or unset means any
+ * SoundCloud account may connect.
  */
 export function isAccountAllowed(
 	identifiers: (string | undefined | null)[],
