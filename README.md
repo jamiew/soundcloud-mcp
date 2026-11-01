@@ -156,8 +156,10 @@ Both servers share these tools. Only the local server exposes login tools.
   activity.
 - Pass `next_href` to `next_page` for cursor pagination. Use SoundCloud API URLs
   only; authenticated requests include your token.
-- Playlist track changes replace the full tracklist. Comments have no delete
-  tool or public API endpoint; treat them as permanent.
+- Playlist track changes replace the full tracklist. Adding or removing a track
+  fails when SoundCloud hides some of the playlist's tracks, since the rewrite
+  would delete them. Comments have no delete tool or public API endpoint; treat
+  them as permanent.
 - Stream URLs expire, and blocked tracks have no stream. Full tracks stream over
   HLS; the only MP3 is a short preview.
 
