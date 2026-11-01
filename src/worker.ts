@@ -20,7 +20,7 @@ function createServer(workerEnv: Env, props: Props | undefined): McpServer {
 	});
 
 	// Recheck the callback's allowlist before registering tools.
-	if (!isAccountAllowed([props?.username, props?.userId], workerEnv.ALLOWED_USERS)) {
+	if (!isAccountAllowed([props?.permalink, props?.userId], workerEnv.ALLOWED_USERS)) {
 		return server;
 	}
 

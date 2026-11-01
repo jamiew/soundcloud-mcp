@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-01
+
+- `next_page` and the API client now refuse URLs outside
+  `https://api.soundcloud.com`, so a crafted link can no longer receive the
+  user's token.
+- The worker allowlist now matches numeric user ids and profile URL slugs, not
+  display names, which are not unique. Update `ALLOWED_USERS` if it lists a
+  display name, then reconnect.
+- The local server shares one refresh between parallel tool calls, so it no
+  longer spends a single-use refresh token twice.
+- Updated dependencies within their ranges.
+
 ## 2026-09-17
 
 - Added a project `.mcp.json` so Claude Code can run the local server from any

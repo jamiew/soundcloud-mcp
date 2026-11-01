@@ -234,8 +234,9 @@ app.get("/callback", async (c) => {
 		return c.text("SoundCloud profile response had an unexpected shape", 500);
 	}
 
-	// Gate access before issuing any token.
-	if (!isAccountAllowed([me.username, String(me.id)], c.env.ALLOWED_USERS)) {
+	// Gate access before issuing any token. Match the unique id and profile URL
+	// slug, never the display name, which anyone can copy.
+	if (!isAccountAllowed([me.permalink, String(me.id)], c.env.ALLOWED_USERS)) {
 		return c.text(
 			"Access denied: this SoundCloud account is not authorized to use this server.",
 			403
@@ -245,6 +246,7 @@ app.get("/callback", async (c) => {
 	const props: Props = {
 		userId: String(me.id),
 		username: me.username ?? String(me.id),
+		permalink: me.permalink,
 		accessToken: tokens.accessToken,
 		refreshToken: tokens.refreshToken,
 		expiresAt: tokens.expiresAt,

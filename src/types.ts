@@ -4,7 +4,10 @@
 export interface SoundCloudUser {
 	id: number;
 	urn: string;
+	/** Display name. Not unique; never use it for access control. */
 	username: string;
+	/** Profile URL slug. Unique across accounts. */
+	permalink: string;
 	permalink_url: string;
 	avatar_url: string | null;
 	description: string | null;

@@ -158,6 +158,18 @@ describe("SoundCloudClient", () => {
 		expect(calls[0]?.url).toBe("https://api.soundcloud.com/me/likes/tracks?cursor=abc");
 	});
 
+	it("never sends the token to a host other than the API", async () => {
+		const { impl, calls } = stubFetch([]);
+		const client = new SoundCloudClient(tokens().provider, undefined, impl);
+
+		await expect(client.nextPage("https://evil.example/steal")).rejects.toThrow(
+			"Only SoundCloud API URLs"
+		);
+		await expect(client.nextPage("http://api.soundcloud.com/me")).rejects.toThrow();
+		await expect(client.request("@evil.example/steal")).rejects.toThrow();
+		expect(calls).toHaveLength(0);
+	});
+
 	it("sends playlist tracks as URN refs, which survive ids above int32", async () => {
 		const { impl, calls } = stubFetch([json({ id: 7 })]);
 		const client = new SoundCloudClient(tokens().provider, undefined, impl);

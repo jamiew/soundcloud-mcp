@@ -4,8 +4,22 @@ import {
 	generatePKCEChallenge,
 	getAuthorizationUrl,
 	getClientCredentialsToken,
+	getValidAccessToken,
 	OAuthError,
 } from "./oauth.js";
+import type * as TokenStore from "./tokenStore.js";
+import type { StoredToken } from "./tokenStore.js";
+
+// Keep tokens in memory so these tests never touch the shared token file.
+const store = vi.hoisted(() => ({ token: null as StoredToken | null }));
+vi.mock("./tokenStore.js", async (importOriginal) => ({
+	...(await importOriginal<typeof TokenStore>()),
+	loadTokens: () => store.token,
+	saveTokens: (token: StoredToken) => {
+		store.token = { ...token, obtained_at: Math.floor(Date.now() / 1000) };
+		return store.token;
+	},
+}));
 
 const base64url = (buf: Buffer): string =>
 	buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -95,5 +109,35 @@ describe("getClientCredentialsToken", () => {
 		await expect(getClientCredentialsToken()).rejects.toMatchObject({
 			message: expect.not.stringContaining("private upstream details"),
 		});
+	});
+});
+
+describe("getValidAccessToken", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		store.token = null;
+	});
+
+	it("spends a single-use refresh token once when calls run in parallel", async () => {
+		store.token = {
+			access_token: "expired",
+			refresh_token: "refresh-1",
+			expires_in: 3600,
+			scope: "*",
+			token_type: "bearer",
+			obtained_at: 0,
+		};
+		const fetchMock = vi.fn(async () => ({
+			ok: true,
+			status: 200,
+			json: async () => ({ access_token: "fresh", refresh_token: "refresh-2", expires_in: 3600 }),
+		}));
+		vi.stubGlobal("fetch", fetchMock);
+
+		const tokens = await Promise.all([getValidAccessToken(), getValidAccessToken()]);
+
+		expect(tokens).toEqual(["fresh", "fresh"]);
+		expect(fetchMock).toHaveBeenCalledTimes(1);
+		expect(store.token?.refresh_token).toBe("refresh-2");
 	});
 });
