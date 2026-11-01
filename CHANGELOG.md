@@ -11,6 +11,14 @@
 - The local server shares one refresh between parallel tool calls, so it no
   longer spends a single-use refresh token twice.
 - Updated dependencies within their ranges.
+- Added `get_station` for stations (system playlists), and `kind="stations"` on
+  the likes list tools. `like_playlist` and `unlike_playlist` accept station
+  URNs.
+- Added `sign_out` to the hosted server. It revokes the app at SoundCloud with
+  `/disconnect` and deletes the user's stored grants. The local `sign_out` tool
+  and the new `pnpm run auth --sign-out` now use `/disconnect` instead of the
+  unsupported `secure.soundcloud.com/sign-out`, and delete the token file even
+  when SoundCloud refuses.
 
 ## 2026-09-17
 

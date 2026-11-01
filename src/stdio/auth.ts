@@ -1,9 +1,16 @@
 #!/usr/bin/env node
-// One-time CLI login: opens a browser, captures the SoundCloud OAuth callback,
-// and stores tokens so the MCP server can use them across sessions.
+// CLI login: opens a browser, captures the SoundCloud OAuth callback, and
+// stores tokens so the MCP server can use them across sessions. `--sign-out`
+// revokes the app's access and deletes the stored token instead.
 import { SoundCloudClient } from "../client.js";
 import { CLIENT_ID, CLIENT_SECRET, TOKEN_FILE } from "./config.js";
-import { loginWithBrowser, OAuthError, tokenProvider } from "./oauth.js";
+import {
+	loginWithBrowser,
+	OAuthError,
+	SIGN_OUT_MESSAGES,
+	signOut,
+	tokenProvider,
+} from "./oauth.js";
 
 async function main() {
 	if (!CLIENT_ID || !CLIENT_SECRET) {
@@ -11,10 +18,16 @@ async function main() {
 		process.exit(1);
 	}
 
+	const client = new SoundCloudClient(tokenProvider);
+	if (process.argv.includes("--sign-out")) {
+		console.error(SIGN_OUT_MESSAGES[await signOut(client)]);
+		return;
+	}
+
 	const noBrowser = process.argv.includes("--no-browser");
 	const { token } = await loginWithBrowser({ openBrowser: !noBrowser });
 
-	const me = await new SoundCloudClient(tokenProvider).getMe();
+	const me = await client.getMe();
 
 	console.error(`\nConnected as ${me.username} (id ${me.id}).`);
 	console.error(`Tokens saved to: ${TOKEN_FILE}`);

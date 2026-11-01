@@ -123,20 +123,35 @@ describe("SoundCloudClient", () => {
 	});
 
 	it("splits likes and reposts by kind, defaulting to tracks", async () => {
-		const { impl, calls } = stubFetch(Array.from({ length: 4 }, () => json({ collection: [] })));
+		const { impl, calls } = stubFetch(Array.from({ length: 6 }, () => json({ collection: [] })));
 		const client = new SoundCloudClient(tokens().provider, undefined, impl);
 
 		await client.getMyLikes(10);
 		await client.getMyReposts(10, "playlists");
 		await client.getUserLikes(42, 10, "playlists");
 		await client.getUserReposts(42, 10);
+		await client.getMyLikes(10, "stations");
+		await client.getUserLikes(42, 10, "stations");
 
 		expect(calls.map((c) => new URL(c.url).pathname)).toEqual([
 			"/me/likes/tracks",
 			"/me/reposts/playlists",
 			"/users/soundcloud:users:42/likes/playlists",
 			"/users/soundcloud:users:42/reposts/tracks",
+			"/me/likes/system-playlists",
+			"/users/soundcloud:users:42/likes/system-playlists",
 		]);
+	});
+
+	it("fetches stations by URN without rewriting it as a playlist URN", async () => {
+		const { impl, calls } = stubFetch([json({ urn: "x" })]);
+		const client = new SoundCloudClient(tokens().provider, undefined, impl);
+
+		await client.getSystemPlaylist("soundcloud:system-playlists:artist-stations:34532");
+
+		expect(calls[0]?.url).toBe(
+			"https://api.soundcloud.com/system-playlists/soundcloud:system-playlists:artist-stations:34532"
+		);
 	});
 
 	it("reads follow status from a 200 or 404", async () => {

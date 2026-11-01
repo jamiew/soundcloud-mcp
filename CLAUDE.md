@@ -80,7 +80,9 @@ use them through the server, not by inspecting credentials.
   claiming a change is live. Reconnect clients to refresh cached `tools/list`.
 - Undo live writes with reversible pairs: like/unlike, follow/unfollow,
   create/delete playlist. `add_comment` has no delete counterpart; comment only
-  on the connected user's own tracks and report it afterward.
+  on the connected user's own tracks and report it afterward. `sign_out` has no
+  undo: it revokes the app for the account, so test it only on an account that
+  can reconnect.
 - `next_page` can try absolute API URLs for unexposed endpoints or parameters.
   Use only SoundCloud API URLs: requests carry the user's token.
 

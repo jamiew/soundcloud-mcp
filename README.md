@@ -40,7 +40,9 @@ For personal data and writes, run `pnpm run auth`. It opens a browser and saves
 rotating tokens to `~/.soundcloud-mcp/tokens.json` with mode `600`. Use
 `pnpm run auth --no-browser` to print the login URL. You can also use the
 `connect_soundcloud` and `auth_status` tools. Public search uses cached
-client-credentials tokens without user login.
+client-credentials tokens without user login. To sign out, run
+`pnpm run auth --sign-out` or call `sign_out`. Both revoke the app's access at
+SoundCloud and delete the token file.
 
 ### Claude Code
 
@@ -136,15 +138,17 @@ The worker serves an install page at `/`, an icon at `/icon.svg`, and OAuth at
 
 ## Tools
 
-Both servers share these tools. Only the local server exposes login tools.
+Both servers share these tools. Only the local server has `connect_soundcloud`
+and `auth_status`. On the hosted server, `sign_out` revokes the app's access at
+SoundCloud and deletes your stored tokens for every connected client.
 
 | Group | Tools |
 | --- | --- |
-| Local auth | `connect_soundcloud`, `auth_status`, `sign_out` |
+| Auth | `connect_soundcloud`, `auth_status` (local only), `sign_out` |
 | Search | `resolve_url`, `search_tracks`, `search_playlists`, `search_users` |
 | Discovery | `get_track`, `get_user`, `get_user_tracks`, `get_user_playlists`, `get_user_likes`, `get_user_reposts`, `get_user_web_profiles`, `get_related_tracks`, `get_related_artists` |
 | Audience | `get_track_likers`, `get_track_reposters`, `get_playlist_reposters`, `get_user_followers`, `get_user_followings` |
-| Playback and browsing | `get_playlist`, `get_playlist_tracks`, `get_stream_url`, `get_comments`, `next_page` |
+| Playback and browsing | `get_playlist`, `get_playlist_tracks`, `get_station`, `get_stream_url`, `get_comments`, `next_page` |
 | Library (login) | `get_profile`, `get_my_likes`, `get_my_reposts`, `get_my_playlists`, `get_my_tracks`, `get_my_followings`, `get_my_followers`, `is_following`, `get_feed`, `get_recently_played` |
 | Social (login) | `like_track`, `unlike_track`, `like_playlist`, `unlike_playlist`, `repost_track`, `unrepost_track`, `repost_playlist`, `unrepost_playlist`, `follow_user`, `unfollow_user`, `add_comment` |
 | Playlists (login) | `create_playlist`, `update_playlist`, `add_tracks_to_playlist`, `remove_track_from_playlist`, `delete_playlist` |
@@ -152,8 +156,10 @@ Both servers share these tools. Only the local server exposes login tools.
 - IDs accept numbers or URNs such as `soundcloud:tracks:123`; prefer URNs.
 - `get_user_tracks` and `get_my_tracks` accept `sort="asc"` or `sort="desc"`.
 - The likes and reposts list tools accept `kind="tracks"` (default) or
-  `kind="playlists"`. `get_feed` accepts `kind="all"` to include playlist
-  activity.
+  `kind="playlists"`. The likes tools also accept `kind="stations"`.
+  `get_feed` accepts `kind="all"` to include playlist activity.
+- `get_station` takes a station URN from a track's or user's `station_urn`.
+  `like_playlist` and `unlike_playlist` also accept station URNs.
 - Pass `next_href` to `next_page` for cursor pagination. Use SoundCloud API URLs
   only; authenticated requests include your token.
 - Playlist track changes replace the full tracklist. Comments have no delete
@@ -185,7 +191,7 @@ changes. It records the synced-through date; issue #2 holds the coverage gaps.
 The standalone audit is:
 
 ```bash
-node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-09-16
+node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-10-28
 ```
 
 The [official spec](https://github.com/soundcloud/api) is authoritative. Track

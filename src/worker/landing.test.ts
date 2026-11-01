@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { SoundCloudClient } from "../client.js";
 import { registerTools } from "../tools.js";
 import { landingPage, TOOL_GROUPS } from "./landing.js";
+import { registerSignOut } from "./signOut.js";
 
 describe("landingPage", () => {
 	const html = landingPage("https://soundcloud-mcp.example.workers.dev");
@@ -42,7 +43,9 @@ describe("landingPage", () => {
 		}) as typeof server.registerTool;
 
 		// Never called — registration only reads the client's shape.
-		registerTools(server, {} as SoundCloudClient);
+		const client = {} as SoundCloudClient;
+		registerTools(server, client);
+		registerSignOut(server, client, {} as Parameters<typeof registerSignOut>[2], "1");
 
 		const advertised = TOOL_GROUPS.flatMap(([, list]) => list);
 		expect([...advertised].sort()).toEqual([...registered].sort());
