@@ -2,6 +2,9 @@
 
 ## 2026-11-01
 
+- The worker now uses `@cloudflare/workers-oauth-provider` 1.2 and `agents`
+  0.32. Tokens are bound to `<origin>/mcp`, the resource the worker already
+  advertised, so existing connections keep working.
 - `next_page` and the API client now refuse URLs outside
   `https://api.soundcloud.com`, so a crafted link can no longer receive the
   user's token.
