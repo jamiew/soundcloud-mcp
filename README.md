@@ -125,9 +125,11 @@ run `pnpm worker:dev` at `http://localhost:8789`. Register its `/callback` URL
 when testing local OAuth.
 
 CI deploys pushes to `main` when the repository variable `DEPLOY_ENABLED` is
-`true` and secret `CLOUDFLARE_API_TOKEN` is set. Forks must also set their account
-ID in `.github/workflows/ci.yml`. Reconnect clients after deploying new tools;
-clients cache the tool list.
+`true` and secret `CLOUDFLARE_API_TOKEN` is set. If the repository variable
+`ENABLE_WRITE_TOOLS` is set, CI copies it into the worker secret of the same name
+before deploying. Forks must also set their account ID in
+`.github/workflows/ci.yml`. Reconnect clients after deploying new tools; clients
+cache the tool list.
 
 **Set `ALLOWED_USERS` unless you intend to offer public access.** Empty or unset
 allows any SoundCloud account to use your API quota. Access is checked at the
