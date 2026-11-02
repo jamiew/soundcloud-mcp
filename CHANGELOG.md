@@ -8,6 +8,9 @@
 - The worker allowlist now matches numeric user ids and profile URL slugs, not
   display names, which are not unique. Update `ALLOWED_USERS` if it lists a
   display name, then reconnect.
+- `add_tracks_to_playlist` and `remove_track_from_playlist` no longer delete
+  blocked tracks. The playlist read hid them by default, so the rewrite dropped
+  them. They now refuse playlists where SoundCloud hides other tracks.
 - The local server shares one refresh between parallel tool calls, so it no
   longer spends a single-use refresh token twice.
 - Updated dependencies within their ranges.

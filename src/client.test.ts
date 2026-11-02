@@ -204,23 +204,38 @@ describe("SoundCloudClient", () => {
 	// whole tracklist back. Dropping an id here silently deletes someone's tracks.
 	it("appends to a playlist by re-sending the existing ids plus the new ones", async () => {
 		const { impl, calls } = stubFetch([
-			json({ id: 7, tracks: [{ id: 1, urn: "soundcloud:tracks:1" }] }),
+			json({ id: 7, track_count: 1, tracks: [{ id: 1, urn: "soundcloud:tracks:1" }] }),
 			json({ id: 7 }),
 		]);
 		const client = new SoundCloudClient(tokens().provider, undefined, impl);
 
 		await client.addTracksToPlaylist(7, [2]);
 
+		// The GET hides blocked tracks by default, and the PUT would then drop them.
+		expect(new URL(calls[0]?.url ?? "").searchParams.get("access")).toBe(
+			"playable,preview,blocked"
+		);
 		expect(JSON.parse(String(calls[1]?.init.body)).playlist.tracks).toEqual([
 			{ urn: "soundcloud:tracks:1" },
 			{ urn: "soundcloud:tracks:2" },
 		]);
 	});
 
+	it("refuses to rewrite a playlist whose tracks are not all returned", async () => {
+		const { impl, calls } = stubFetch([
+			json({ id: 7, track_count: 2, tracks: [{ id: 1, urn: "soundcloud:tracks:1" }] }),
+		]);
+		const client = new SoundCloudClient(tokens().provider, undefined, impl);
+
+		await expect(client.addTracksToPlaylist(7, [2])).rejects.toThrow("hides some tracks");
+		expect(calls).toHaveLength(1);
+	});
+
 	it("removes one track from a playlist and keeps the rest", async () => {
 		const { impl, calls } = stubFetch([
 			json({
 				id: 7,
+				track_count: 2,
 				tracks: [
 					{ id: 1, urn: "soundcloud:tracks:1" },
 					{ id: 2, urn: "soundcloud:tracks:2" },
