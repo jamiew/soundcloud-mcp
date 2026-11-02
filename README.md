@@ -113,6 +113,8 @@ The config file is at:
    - `COOKIE_ENCRYPTION_KEY`: generate with `openssl rand -hex 32`
    - `ALLOWED_USERS`: comma-separated profile URL slugs (the `name` in
      `soundcloud.com/name`) or numeric user IDs. Display names do not match.
+   - `ENABLE_WRITE_TOOLS`: set to `true` to offer the Social and Playlists
+     tools. Unset, the worker only reads.
 4. Register `https://<your-worker>.workers.dev/callback` on your SoundCloud app.
    It must match exactly.
 5. Run `pnpm worker:deploy`, then connect your MCP client to
@@ -129,12 +131,18 @@ clients cache the tool list.
 
 **Set `ALLOWED_USERS` unless you intend to offer public access.** Empty or unset
 allows any SoundCloud account to use your API quota. Access is checked at the
-OAuth callback and tool registration. Public hosting also needs a review of
+OAuth callback and tool registration, and the worker deletes stored tokens for
+accounts removed from the list. Public hosting also needs a review of
 SoundCloud's terms and shared rate limits; see
-[#1](https://github.com/jamiew/soundcloud-mcp/issues/1).
+[#1](https://github.com/jamiew/soundcloud-mcp/issues/1). SoundCloud's terms
+restrict acting on users' behalf, so write tools stay off unless you set
+`ENABLE_WRITE_TOOLS`.
 
-The worker serves an install page at `/`, an icon at `/icon.svg`, and OAuth at
-`/authorize`, `/callback`, `/token`, and `/register`.
+The worker serves an install page at `/`, a privacy page at `/privacy`, an icon
+at `/icon.svg`, and OAuth at `/authorize`, `/callback`, `/token`, and
+`/register`. It stores each user's SoundCloud tokens, encrypted, in KV until
+they call `sign_out` or 30 days pass. Update `src/worker/privacy.ts` if you
+change what the worker stores.
 
 ## Tools
 

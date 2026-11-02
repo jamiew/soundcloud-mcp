@@ -7,8 +7,14 @@ import { HOSTED_ICON } from "./icon.js";
 import { instructions, serverInfo } from "./server.js";
 import { registerTools } from "./tools.js";
 import { SoundCloudHandler } from "./worker/handler.js";
-import { isAccountAllowed, type Props, PropsSchema, refreshTokens } from "./worker/oauth.js";
-import { registerSignOut } from "./worker/signOut.js";
+import {
+	isAccountAllowed,
+	type Props,
+	PropsSchema,
+	refreshTokens,
+	writesEnabled,
+} from "./worker/oauth.js";
+import { deleteUserGrants, registerSignOut } from "./worker/signOut.js";
 
 // OAuthProvider adds its helpers to env before calling API handlers.
 type McpEnv = Env & { OAUTH_PROVIDER: OAuthHelpers };
@@ -16,15 +22,22 @@ type McpEnv = Env & { OAUTH_PROVIDER: OAuthHelpers };
 // Stateless: every request builds a fresh server from the props OAuthProvider
 // decrypts out of the grant, so rotated tokens apply on the next request and
 // no Durable Object or session state lives between requests.
-function createServer(workerEnv: McpEnv, props: Props | undefined): McpServer {
+function createServer(
+	workerEnv: McpEnv,
+	ctx: ExecutionContext,
+	props: Props | undefined
+): McpServer {
 	const server = new McpServer(serverInfo("soundcloud-mcp", "0.1.0", [HOSTED_ICON]), {
 		instructions: instructions(
 			"- The connected account is already authorized; there is no login step."
 		),
 	});
 
-	// Recheck the callback's allowlist before registering tools.
-	if (!props || !isAccountAllowed([props.permalink, props.userId], workerEnv.ALLOWED_USERS)) {
+	if (!props) return server;
+	// Recheck the callback's allowlist. An account removed from it has lost
+	// access, so delete its stored grants instead of keeping dead tokens.
+	if (!isAccountAllowed([props.permalink, props.userId], workerEnv.ALLOWED_USERS)) {
+		ctx.waitUntil(deleteUserGrants(workerEnv.OAUTH_PROVIDER, props.userId));
 		return server;
 	}
 
@@ -40,7 +53,7 @@ function createServer(workerEnv: McpEnv, props: Props | undefined): McpServer {
 		},
 	});
 
-	registerTools(server, client);
+	registerTools(server, client, { writes: writesEnabled(workerEnv) });
 	registerSignOut(server, client, workerEnv.OAUTH_PROVIDER, props.userId);
 	return server;
 }
@@ -51,7 +64,7 @@ const mcpHandler = {
 		if (request.method === "GET") {
 			return new Response(null, { status: 405, headers: { Allow: "POST, OPTIONS" } });
 		}
-		const server = createServer(workerEnv, PropsSchema.safeParse(ctx.props).data);
+		const server = createServer(workerEnv, ctx, PropsSchema.safeParse(ctx.props).data);
 		// No session id: the SDK v1 transport then serves each request on its own.
 		return createLegacyMcpHandler(server, { route: "/mcp", sessionIdGenerator: undefined })(
 			request,

@@ -8,8 +8,10 @@ interface WorkerBindings {
 	SOUNDCLOUD_CLIENT_SECRET: string;
 	/** Secret for signing client approval cookies. */
 	COOKIE_ENCRYPTION_KEY: string;
-	/** Allowed usernames or numeric user IDs, comma-separated. Empty allows all accounts. */
+	/** Allowed profile URL slugs or numeric user IDs, comma-separated. Empty allows all accounts. */
 	ALLOWED_USERS?: string;
+	/** "true" registers tools that change the user's account. Off when unset. */
+	ENABLE_WRITE_TOOLS?: string;
 }
 
 /** Bindings passed to request handlers. */

@@ -164,7 +164,12 @@ function streamLinks(streams?: TrackStreams): ContentBlock[] {
 	return [{ type: "resource_link", uri: preview, name: "audio preview", mimeType: "audio/mpeg" }];
 }
 
-export function registerTools(server: McpServer, sc: SoundCloudClient): void {
+/** `writes: false` leaves out every tool that changes the user's account. */
+export function registerTools(
+	server: McpServer,
+	sc: SoundCloudClient,
+	{ writes = true }: { writes?: boolean } = {}
+): void {
 	// --- Discovery ---
 	server.registerTool(
 		"search_tracks",
@@ -604,6 +609,12 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		async ({ limit: max }) => run(() => sc.getRecentlyPlayed(max))
 	);
 
+	if (writes) registerWriteTools(server, sc);
+	registerPrompts(server, sc);
+	registerResources(server, sc);
+}
+
+function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 	// --- Social writes ---
 	server.registerTool(
 		"like_track",
@@ -855,9 +866,6 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 				return `Deleted playlist ${playlistId}.`;
 			})
 	);
-
-	registerPrompts(server, sc);
-	registerResources(server, sc);
 }
 
 // A JSON resource body. Templates are not listable — there is no endpoint that

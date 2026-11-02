@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generatePkce, getAuthorizeUrl, isAccountAllowed } from "./oauth.js";
+import { generatePkce, getAuthorizeUrl, isAccountAllowed, writesEnabled } from "./oauth.js";
 
 describe("generatePkce", () => {
 	it("produces a base64url verifier and its S256 challenge", async () => {
@@ -50,5 +50,14 @@ describe("isAccountAllowed", () => {
 
 	it("rejects accounts outside a configured allowlist", () => {
 		expect(isAccountAllowed(["stranger", "999"], "jamiedubs,34532")).toBe(false);
+	});
+});
+
+describe("writesEnabled", () => {
+	it("keeps write tools off unless ENABLE_WRITE_TOOLS is true", () => {
+		expect(writesEnabled({})).toBe(false);
+		expect(writesEnabled({ ENABLE_WRITE_TOOLS: "" })).toBe(false);
+		expect(writesEnabled({ ENABLE_WRITE_TOOLS: "1" })).toBe(false);
+		expect(writesEnabled({ ENABLE_WRITE_TOOLS: " TRUE " })).toBe(true);
 	});
 });

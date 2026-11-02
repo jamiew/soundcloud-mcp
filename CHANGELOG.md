@@ -19,6 +19,11 @@
   and the new `pnpm run auth --sign-out` now use `/disconnect` instead of the
   unsupported `secure.soundcloud.com/sign-out`, and delete the token file even
   when SoundCloud refuses.
+- The hosted server leaves out write tools (like, repost, follow, comment, and
+  playlist edits) unless the `ENABLE_WRITE_TOOLS` secret is `true`. Existing
+  deployments must set it to keep them.
+- The worker serves a privacy page at `/privacy`, linked from the install
+  page, and deletes stored tokens for accounts removed from `ALLOWED_USERS`.
 
 ## 2026-09-17
 

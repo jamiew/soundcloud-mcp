@@ -77,7 +77,8 @@ export const TOOL_GROUPS: [string, string[]][] = [
 	["Account", ["sign_out"]],
 ];
 
-const TOOL_COUNT = TOOL_GROUPS.reduce((n, [, list]) => n + list.length, 0);
+/** Groups made only of write tools, which deployments can turn off. */
+const WRITE_GROUPS = ["Social", "Playlists"];
 
 const DESCRIPTION = "Search SoundCloud and manage your library with an AI assistant.";
 
@@ -85,14 +86,18 @@ const escapeHtml = (s: string) =>
 	s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 /** Renders the install page using the request origin. */
-export function landingPage(origin: string): string {
+export function landingPage(origin: string, writes: boolean): string {
 	const mcpUrl = `${origin}/mcp`;
-	const tools = TOOL_GROUPS.map(
-		([name, list]) => `<section class="group">
+	const groups = TOOL_GROUPS.filter(([name]) => writes || !WRITE_GROUPS.includes(name));
+	const toolCount = groups.reduce((n, [, list]) => n + list.length, 0);
+	const tools = groups
+		.map(
+			([name, list]) => `<section class="group">
         <h3>${name} <span class="count">${list.length}</span></h3>
         <ul>${list.map((t) => `<li><code>${t}</code></li>`).join("")}</ul>
       </section>`
-	).join("");
+		)
+		.join("");
 
 	return `<!doctype html>
 <html lang="en">
@@ -164,7 +169,11 @@ export function landingPage(origin: string): string {
 <main>
   <h1>SoundCloud MCP<span class="dot">.</span></h1>
   <p class="lede">
-    Search SoundCloud and manage your likes, playlists, follows, and reposts
+    ${
+			writes
+				? "Search SoundCloud and manage your likes, playlists, follows, and reposts"
+				: "Search SoundCloud and read your likes, playlists, and follows"
+		}
     through <a href="https://modelcontextprotocol.io">MCP</a>.
   </p>
 
@@ -185,12 +194,13 @@ export function landingPage(origin: string): string {
     Not on the allowlist? <a href="${REPO_URL}">Deploy your own server</a>.
   </div>
 
-  <h2>Tools <span class="count">${TOOL_COUNT}</span></h2>
+  <h2>Tools <span class="count">${toolCount}</span></h2>
   <div class="groups">${tools}</div>
 
   <footer>
     <a href="${REPO_URL}">Source on GitHub</a> ·
     <a href="${REPO_URL}/blob/main/CHANGELOG.md">Changelog</a> ·
+    <a href="/privacy">Privacy</a> ·
     Unofficial, not affiliated with SoundCloud ·
     Used within the
     <a href="https://developers.soundcloud.com/docs/api/terms-of-use">API Terms of Use</a>
