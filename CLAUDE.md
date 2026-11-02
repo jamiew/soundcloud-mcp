@@ -80,7 +80,9 @@ use them through the server, not by inspecting credentials.
   claiming a change is live. Reconnect clients to refresh cached `tools/list`.
 - Undo live writes with reversible pairs: like/unlike, follow/unfollow,
   create/delete playlist. `add_comment` has no delete counterpart; comment only
-  on the connected user's own tracks and report it afterward.
+  on the connected user's own tracks and report it afterward. `sign_out` has no
+  undo: it revokes the app for the account, so test it only on an account that
+  can reconnect.
 - `next_page` can try absolute API URLs for unexposed endpoints or parameters.
   Use only SoundCloud API URLs: requests carry the user's token.
 
@@ -90,6 +92,9 @@ use them through the server, not by inspecting credentials.
 - Give tools a `title` and behavior annotations. Return `structuredContent`
   alongside text where applicable, and `resource_link` blocks for permalinks,
   artwork, and audio.
+- Register tools that change the user's account in `registerWriteTools`. The
+  hosted server offers them only when `ENABLE_WRITE_TOOLS` is `true`. Keep
+  `src/worker/privacy.ts` accurate when changing what the worker stores.
 - Use `z.looseObject`, never `z.object`, for `outputSchema`. Strict schemas
   reject undocumented upstream fields at the client. Describe only the envelope
   (`collection`, `next_href`), not entity fields.

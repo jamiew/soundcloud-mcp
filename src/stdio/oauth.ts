@@ -2,11 +2,11 @@ import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import http from "node:http";
 import { URL } from "node:url";
-import type { TokenProvider } from "../client.js";
+import type { SoundCloudClient, TokenProvider } from "../client.js";
 import type { OAuthToken, PKCEChallenge } from "../types.js";
 import { API_BASE, AUTH_BASE, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI } from "./config.js";
 import { debug, logError } from "./log.js";
-import { isExpired, loadTokens, type StoredToken, saveTokens } from "./tokenStore.js";
+import { clearTokens, isExpired, loadTokens, type StoredToken, saveTokens } from "./tokenStore.js";
 
 export class OAuthError extends Error {}
 
@@ -95,16 +95,31 @@ function refreshToken(refresh_token: string): Promise<StoredToken> {
 	return refreshing;
 }
 
-export async function signOut(accessToken: string): Promise<void> {
-	const response = await fetch(`${AUTH_BASE}/sign-out`, {
-		method: "POST",
-		headers: { "Content-Type": "application/json", Accept: "application/json; charset=utf-8" },
-		body: JSON.stringify({ access_token: accessToken }),
-	});
-	if (!response.ok) {
-		throw new OAuthError("SoundCloud sign-out failed. Try again.");
+export type SignOutResult = "revoked" | "forgotten" | "not-logged-in";
+
+/**
+ * Revokes the app at SoundCloud, then deletes the token file even if SoundCloud
+ * refused, so signing out never leaves a token on disk.
+ */
+export async function signOut(sc: Pick<SoundCloudClient, "disconnect">): Promise<SignOutResult> {
+	if (!hasUserToken()) return "not-logged-in";
+	let result: SignOutResult = "revoked";
+	try {
+		await sc.disconnect();
+	} catch (error) {
+		debug("SoundCloud disconnect failed:", error);
+		result = "forgotten";
 	}
+	clearTokens();
+	return result;
 }
+
+export const SIGN_OUT_MESSAGES: Record<SignOutResult, string> = {
+	revoked: "Signed out. SoundCloud revoked this app's access and the local token is deleted.",
+	forgotten:
+		"Deleted the local token, but SoundCloud did not confirm the revocation. Remove the app in your SoundCloud settings to be sure.",
+	"not-logged-in": "Not logged in; nothing to sign out.",
+};
 
 // Returns a valid USER access token, refreshing if it's near expiry.
 // Throws if the user hasn't logged in yet.

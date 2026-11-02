@@ -4,6 +4,7 @@
  * Set secrets with `pnpm exec wrangler secret put <NAME>`:
  * SOUNDCLOUD_CLIENT_ID, SOUNDCLOUD_CLIENT_SECRET, COOKIE_ENCRYPTION_KEY.
  * ALLOWED_USERS is an optional comma-separated account allowlist.
+ * ENABLE_WRITE_TOOLS="true" turns on tools that change the user's account.
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",

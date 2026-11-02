@@ -11,7 +11,9 @@ import {
 	isAccountAllowed,
 	type Props,
 	type Tokens,
+	writesEnabled,
 } from "./oauth.js";
+import { privacyPage } from "./privacy.js";
 import {
 	addApprovedClient,
 	bindStateToSession,
@@ -73,11 +75,13 @@ async function redirectToSoundCloud(
 }
 
 app.get("/", (c) =>
-	c.html(landingPage(new URL(c.req.url).origin), 200, {
+	c.html(landingPage(new URL(c.req.url).origin, writesEnabled(c.env)), 200, {
 		// Short, so a deploy's changes show up promptly.
 		"Cache-Control": "public, max-age=300",
 	})
 );
+
+app.get("/privacy", (c) => c.html(privacyPage(), 200, { "Cache-Control": "public, max-age=300" }));
 
 app.get("/icon.svg", (c) =>
 	c.body(ICON_SVG, 200, {

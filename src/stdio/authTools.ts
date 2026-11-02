@@ -1,7 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { SoundCloudClient } from "../client.js";
-import { getValidAccessToken, hasUserToken, loginWithBrowser, signOut } from "./oauth.js";
-import { clearTokens } from "./tokenStore.js";
+import { hasUserToken, loginWithBrowser, SIGN_OUT_MESSAGES, signOut } from "./oauth.js";
 
 // Stdio handles login through tools; the worker uses transport OAuth.
 export function registerAuthTools(server: McpServer, sc: SoundCloudClient): void {
@@ -67,7 +66,8 @@ export function registerAuthTools(server: McpServer, sc: SoundCloudClient): void
 		"sign_out",
 		{
 			title: "Sign out",
-			description: "Sign out and forget the stored SoundCloud token.",
+			description:
+				"Revoke this app's SoundCloud access and delete the stored token. Public search still works afterward.",
 			annotations: {
 				title: "Sign out",
 				readOnlyHint: false,
@@ -76,11 +76,8 @@ export function registerAuthTools(server: McpServer, sc: SoundCloudClient): void
 				openWorldHint: true,
 			},
 		},
-		async () => {
-			const token = await getValidAccessToken();
-			await signOut(token);
-			clearTokens();
-			return { content: [{ type: "text" as const, text: "Signed out." }] };
-		}
+		async () => ({
+			content: [{ type: "text" as const, text: SIGN_OUT_MESSAGES[await signOut(sc)] }],
+		})
 	);
 }

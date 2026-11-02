@@ -11,9 +11,25 @@
 - The worker allowlist now matches numeric user ids and profile URL slugs, not
   display names, which are not unique. Update `ALLOWED_USERS` if it lists a
   display name, then reconnect.
+- `add_tracks_to_playlist` and `remove_track_from_playlist` no longer delete
+  blocked tracks. The playlist read hid them by default, so the rewrite dropped
+  them. They now refuse playlists where SoundCloud hides other tracks.
 - The local server shares one refresh between parallel tool calls, so it no
   longer spends a single-use refresh token twice.
 - Updated dependencies within their ranges.
+- Added `get_station` for stations (system playlists), and `kind="stations"` on
+  the likes list tools. `like_playlist` and `unlike_playlist` accept station
+  URNs.
+- Added `sign_out` to the hosted server. It revokes the app at SoundCloud with
+  `/disconnect` and deletes the user's stored grants. The local `sign_out` tool
+  and the new `pnpm run auth --sign-out` now use `/disconnect` instead of the
+  unsupported `secure.soundcloud.com/sign-out`, and delete the token file even
+  when SoundCloud refuses.
+- The hosted server leaves out write tools (like, repost, follow, comment, and
+  playlist edits) unless the `ENABLE_WRITE_TOOLS` secret is `true`. Existing
+  deployments must set it to keep them.
+- The worker serves a privacy page at `/privacy`, linked from the install
+  page, and deletes stored tokens for accounts removed from `ALLOWED_USERS`.
 
 ## 2026-09-17
 

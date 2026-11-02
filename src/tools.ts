@@ -6,7 +6,13 @@ import {
 	SoundCloudAuthError,
 	type SoundCloudClient,
 } from "./client.js";
-import type { SoundCloudPlaylist, SoundCloudTrack, TrackStreams, WebProfile } from "./types.js";
+import type {
+	SoundCloudPlaylist,
+	SoundCloudTrack,
+	SystemPlaylist,
+	TrackStreams,
+	WebProfile,
+} from "./types.js";
 
 type ContentBlock =
 	| { type: "text"; text: string }
@@ -41,6 +47,7 @@ const id = z.union([z.string(), z.number()]);
 const limit = z.number().int().min(1).max(200).default(50);
 const trackSort = z.enum(["asc", "desc"]).optional();
 const libraryKind = z.enum(["tracks", "playlists"]).default("tracks");
+const likeKind = z.enum(["tracks", "playlists", "stations"]).default("tracks");
 
 function ok(data: unknown, extra: ContentBlock[] = []): ToolResult {
 	const text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
@@ -115,7 +122,7 @@ function trackLinks(track?: SoundCloudTrack): ContentBlock[] {
 	return links;
 }
 
-function playlistLinks(playlist?: SoundCloudPlaylist): ContentBlock[] {
+function playlistLinks(playlist?: SoundCloudPlaylist | SystemPlaylist): ContentBlock[] {
 	if (!playlist?.permalink_url) return [];
 	return [
 		{
@@ -157,7 +164,12 @@ function streamLinks(streams?: TrackStreams): ContentBlock[] {
 	return [{ type: "resource_link", uri: preview, name: "audio preview", mimeType: "audio/mpeg" }];
 }
 
-export function registerTools(server: McpServer, sc: SoundCloudClient): void {
+/** `writes: false` leaves out every tool that changes the user's account. */
+export function registerTools(
+	server: McpServer,
+	sc: SoundCloudClient,
+	{ writes = true }: { writes?: boolean } = {}
+): void {
 	// --- Discovery ---
 	server.registerTool(
 		"search_tracks",
@@ -223,7 +235,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Resolve a SoundCloud URL",
 			description:
-				"Resolve a soundcloud.com or on.soundcloud.com link to a track, user, playlist, or station. Use for pasted SoundCloud links.",
+				"Resolve a soundcloud.com or on.soundcloud.com link to a track, user, playlist, or station. Use for pasted SoundCloud links; pass station URNs to get_station.",
 			inputSchema: { url: z.string().url() },
 			annotations: { title: "Resolve a SoundCloud URL", ...READ },
 		},
@@ -281,8 +293,8 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"get_user_likes",
 		{
 			title: "Get an artist's likes",
-			description: "List tracks or playlists a user has liked.",
-			inputSchema: { userId: id, limit, kind: libraryKind },
+			description: "List tracks, playlists, or stations a user has liked.",
+			inputSchema: { userId: id, limit, kind: likeKind },
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's likes", ...READ },
 		},
@@ -346,6 +358,25 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 			annotations: { title: "Get playlist", ...READ },
 		},
 		async ({ playlistId }) => run(() => sc.getPlaylist(playlistId), playlistLinks)
+	);
+
+	server.registerTool(
+		"get_station",
+		{
+			title: "Get station",
+			description:
+				"Get a station (system playlist) and its tracks. Tracks and users carry a station_urn; get_my_likes with kind=stations lists liked ones.",
+			inputSchema: {
+				stationUrn: z
+					.string()
+					.min(1)
+					.describe(
+						"soundcloud:system-playlists:track-stations:123, or the part after soundcloud:system-playlists:"
+					),
+			},
+			annotations: { title: "Get station", ...READ },
+		},
+		async ({ stationUrn }) => run(() => sc.getSystemPlaylist(stationUrn), playlistLinks)
 	);
 
 	server.registerTool(
@@ -471,8 +502,8 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"get_my_likes",
 		{
 			title: "Get my likes",
-			description: "List tracks or playlists the connected user has liked.",
-			inputSchema: { limit, kind: libraryKind },
+			description: "List tracks, playlists, or stations the connected user has liked.",
+			inputSchema: { limit, kind: likeKind },
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my likes", ...READ },
 		},
@@ -578,6 +609,12 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		async ({ limit: max }) => run(() => sc.getRecentlyPlayed(max))
 	);
 
+	if (writes) registerWriteTools(server, sc);
+	registerPrompts(server, sc);
+	registerResources(server, sc);
+}
+
+function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 	// --- Social writes ---
 	server.registerTool(
 		"like_track",
@@ -643,7 +680,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"like_playlist",
 		{
 			title: "Like playlist",
-			description: "Like a playlist.",
+			description: "Like a playlist or a station.",
 			inputSchema: { playlistId: id },
 			annotations: { title: "Like playlist", ...WRITE, idempotentHint: true },
 		},
@@ -658,7 +695,7 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 		"unlike_playlist",
 		{
 			title: "Unlike playlist",
-			description: "Remove a like from a playlist.",
+			description: "Remove a like from a playlist or a station.",
 			inputSchema: { playlistId: id },
 			annotations: { title: "Unlike playlist", ...WRITE, idempotentHint: true },
 		},
@@ -829,9 +866,6 @@ export function registerTools(server: McpServer, sc: SoundCloudClient): void {
 				return `Deleted playlist ${playlistId}.`;
 			})
 	);
-
-	registerPrompts(server, sc);
-	registerResources(server, sc);
 }
 
 // A JSON resource body. Templates are not listable — there is no endpoint that

@@ -145,3 +145,12 @@ export function isAccountAllowed(
 	if (allow.length === 0) return true;
 	return identifiers.some((id) => !!id && allow.includes(id.toLowerCase()));
 }
+
+/**
+ * Tools that like, repost, follow, comment, or edit playlists act on the user's
+ * behalf, which SoundCloud's terms restrict. They stay off unless the
+ * ENABLE_WRITE_TOOLS secret is "true".
+ */
+export function writesEnabled(workerEnv: { ENABLE_WRITE_TOOLS?: string }): boolean {
+	return workerEnv.ENABLE_WRITE_TOOLS?.trim().toLowerCase() === "true";
+}
