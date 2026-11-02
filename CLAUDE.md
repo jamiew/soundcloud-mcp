@@ -92,6 +92,9 @@ use them through the server, not by inspecting credentials.
 - Give tools a `title` and behavior annotations. Return `structuredContent`
   alongside text where applicable, and `resource_link` blocks for permalinks,
   artwork, and audio.
+- Register tools that change the user's account in `registerWriteTools`. The
+  hosted server offers them only when `ENABLE_WRITE_TOOLS` is `true`. Keep
+  `src/worker/privacy.ts` accurate when changing what the worker stores.
 - Use `z.looseObject`, never `z.object`, for `outputSchema`. Strict schemas
   reject undocumented upstream fields at the client. Describe only the envelope
   (`collection`, `next_href`), not entity fields.

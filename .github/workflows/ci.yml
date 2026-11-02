@@ -43,6 +43,14 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Keeps the ENABLE_WRITE_TOOLS secret in step with the repo variable, so
+      # turning write tools on or off needs no local wrangler login.
+      - if: vars.ENABLE_WRITE_TOOLS != ''
+        run: printf '%s' "$VALUE" | pnpm exec wrangler secret put ENABLE_WRITE_TOOLS
+        env:
+          VALUE: ${{ vars.ENABLE_WRITE_TOOLS }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: 7e942171573cc4a7cd4238448e646c58
       - run: pnpm worker:deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}

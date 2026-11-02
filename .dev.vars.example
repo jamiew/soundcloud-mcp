@@ -5,3 +5,5 @@ SOUNDCLOUD_CLIENT_SECRET="your-soundcloud-client-secret"
 COOKIE_ENCRYPTION_KEY="run: openssl rand -hex 32"
 # Optional: comma-separated profile URL slugs or numeric user ids. Empty = open to anyone.
 ALLOWED_USERS=""
+# Optional: "true" offers tools that like, repost, follow, comment, and edit playlists.
+ENABLE_WRITE_TOOLS="true"
