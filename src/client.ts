@@ -378,19 +378,37 @@ export class SoundCloudClient {
 		return this.request<void>(`/playlists/${toUrn("playlists", id)}`, { method: "DELETE" });
 	}
 
+	/**
+	 * Reads every track id for a read-modify-write. The playlist GET omits blocked
+	 * tracks unless asked, and a PUT without them deletes them. Tracks the API
+	 * never returns (track_count is higher) would also be deleted, so refuse.
+	 */
+	private async getTracklist(id: string | number): Promise<(string | number)[]> {
+		const playlist = await this.request<SoundCloudPlaylist>(
+			`/playlists/${toUrn("playlists", id)}`,
+			{
+				query: { access: "playable,preview,blocked" },
+			}
+		);
+		const tracks = playlist.tracks ?? [];
+		if (tracks.length < (playlist.track_count ?? 0)) {
+			throw new SoundCloudApiError(
+				"SoundCloud hides some tracks in this playlist, and changing it here would delete them. Edit it on soundcloud.com instead.",
+				409
+			);
+		}
+		return tracks.map((t) => t.urn ?? t.id);
+	}
+
 	/** SoundCloud has no append endpoint; the whole tracklist must be re-sent. */
 	async addTracksToPlaylist(id: string | number, trackIds: (string | number)[]) {
-		const existing = await this.getPlaylist(id);
-		const ids = [...(existing.tracks ?? []).map((t) => t.urn ?? t.id), ...trackIds];
+		const ids = [...(await this.getTracklist(id)), ...trackIds];
 		return this.updatePlaylist(id, { trackIds: ids });
 	}
 
 	async removeTrackFromPlaylist(id: string | number, trackId: string | number) {
-		const existing = await this.getPlaylist(id);
 		const target = toUrn("tracks", trackId);
-		const ids = (existing.tracks ?? [])
-			.map((t) => t.urn ?? t.id)
-			.filter((each) => toUrn("tracks", each) !== target);
+		const ids = (await this.getTracklist(id)).filter((each) => toUrn("tracks", each) !== target);
 		return this.updatePlaylist(id, { trackIds: ids });
 	}
 }
