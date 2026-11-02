@@ -5,6 +5,9 @@ allowBuilds:
   workerd: true
 overrides:
   # markdownlint-cli2 pins a TOML parser with a denial-of-service vulnerability.
-  markdownlint-cli2>smol-toml: 1.7.1
+  markdownlint-cli2>smol-toml: ^1.9.0
   # Keep Nano ID 3 above its denial-of-service fix without changing Nano ID 5.
   nanoid@<3.3.18: 3.3.18
+  markdown-it@<15.0.3: ^15.0.3
+  source-map-js@<1.2.2: ^1.2.2
+  vite@<8.1.6: ^8.1.6
