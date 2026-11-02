@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import OAuthProvider from "@cloudflare/workers-oauth-provider";
+import OAuthProvider, { type OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createLegacyMcpHandler } from "agents/mcp";
 import { SoundCloudAuthError, SoundCloudClient } from "./client.js";
@@ -8,11 +8,15 @@ import { instructions, serverInfo } from "./server.js";
 import { registerTools } from "./tools.js";
 import { SoundCloudHandler } from "./worker/handler.js";
 import { isAccountAllowed, type Props, PropsSchema, refreshTokens } from "./worker/oauth.js";
+import { registerSignOut } from "./worker/signOut.js";
+
+// OAuthProvider adds its helpers to env before calling API handlers.
+type McpEnv = Env & { OAUTH_PROVIDER: OAuthHelpers };
 
 // Stateless: every request builds a fresh server from the props OAuthProvider
 // decrypts out of the grant, so rotated tokens apply on the next request and
 // no Durable Object or session state lives between requests.
-function createServer(workerEnv: Env, props: Props | undefined): McpServer {
+function createServer(workerEnv: McpEnv, props: Props | undefined): McpServer {
 	const server = new McpServer(serverInfo("soundcloud-mcp", "0.1.0", [HOSTED_ICON]), {
 		instructions: instructions(
 			"- The connected account is already authorized; there is no login step."
@@ -20,13 +24,13 @@ function createServer(workerEnv: Env, props: Props | undefined): McpServer {
 	});
 
 	// Recheck the callback's allowlist before registering tools.
-	if (!isAccountAllowed([props?.permalink, props?.userId], workerEnv.ALLOWED_USERS)) {
+	if (!props || !isAccountAllowed([props.permalink, props.userId], workerEnv.ALLOWED_USERS)) {
 		return server;
 	}
 
 	const client = new SoundCloudClient({
 		getAccessToken: async () => {
-			const token = props?.accessToken;
+			const token = props.accessToken;
 			if (!token) throw new SoundCloudAuthError();
 			return token;
 		},
@@ -37,11 +41,12 @@ function createServer(workerEnv: Env, props: Props | undefined): McpServer {
 	});
 
 	registerTools(server, client);
+	registerSignOut(server, client, workerEnv.OAUTH_PROVIDER, props.userId);
 	return server;
 }
 
 const mcpHandler = {
-	fetch(request: Request, workerEnv: Env, ctx: ExecutionContext) {
+	fetch(request: Request, workerEnv: McpEnv, ctx: ExecutionContext) {
 		// A per-request server can never write to a standalone listen stream.
 		if (request.method === "GET") {
 			return new Response(null, { status: 405, headers: { Allow: "POST, OPTIONS" } });

@@ -14,7 +14,7 @@ re-derives what is true from the official sources.
 
 ```bash
 node .claude/skills/soundcloud-api-sync/audit.mjs                  # latest 8 releases
-node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-09-16
+node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-10-28
 ```
 
 It fetches the live spec and prints three things:
@@ -25,7 +25,7 @@ It fetches the live spec and prints three things:
   a candidate for the silent 405 treatment; verify it live before trusting it.
 - **RELEASES** — dated release-note headlines.
 
-**Synced through: 2026-09-16.**
+**Synced through: 2026-10-28.**
 
 Pass `--since` with that date to see only what is new, then update it here when
 done. The coverage gap list lives in
@@ -65,6 +65,9 @@ memory — check the spec if something contradicts them.
 - `Authorization: OAuth <token>`, never `Bearer`.
 - URNs in paths (`soundcloud:tracks:123`). Numeric ids are deprecated.
 - Refresh tokens are single-use; persist the rotated one or auth dies for good.
+- Sign out with `POST api.soundcloud.com/disconnect`, which revokes the app's
+  tokens for the user. `/sign-out` ends the user's web session too, and the
+  legacy `secure.soundcloud.com/sign-out` is unsupported for API apps.
 - Client-credentials tokens: 50 per 12h per app, 30 per hour per IP. Play-stream
   requests: 15,000 per 24h per `client_id`.
 - No official SDK is maintained. The Ruby, Python, and JS repos are all

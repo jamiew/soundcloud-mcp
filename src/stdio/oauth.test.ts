@@ -6,6 +6,7 @@ import {
 	getClientCredentialsToken,
 	getValidAccessToken,
 	OAuthError,
+	signOut,
 } from "./oauth.js";
 import type * as TokenStore from "./tokenStore.js";
 import type { StoredToken } from "./tokenStore.js";
@@ -18,6 +19,9 @@ vi.mock("./tokenStore.js", async (importOriginal) => ({
 	saveTokens: (token: StoredToken) => {
 		store.token = { ...token, obtained_at: Math.floor(Date.now() / 1000) };
 		return store.token;
+	},
+	clearTokens: () => {
+		store.token = null;
 	},
 }));
 
@@ -139,5 +143,33 @@ describe("getValidAccessToken", () => {
 		expect(tokens).toEqual(["fresh", "fresh"]);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		expect(store.token?.refresh_token).toBe("refresh-2");
+	});
+});
+
+describe("signOut", () => {
+	afterEach(() => {
+		store.token = null;
+	});
+
+	it("deletes the local token even when SoundCloud rejects the revocation", async () => {
+		store.token = {
+			access_token: "a",
+			refresh_token: "r",
+			expires_in: 3600,
+			scope: "*",
+			token_type: "bearer",
+			obtained_at: Math.floor(Date.now() / 1000),
+		};
+		const sc = { disconnect: vi.fn(async () => Promise.reject(new Error("400"))) };
+
+		await expect(signOut(sc)).resolves.toBe("forgotten");
+		expect(store.token).toBeNull();
+	});
+
+	it("does not call SoundCloud when nobody is logged in", async () => {
+		const sc = { disconnect: vi.fn(async () => {}) };
+
+		await expect(signOut(sc)).resolves.toBe("not-logged-in");
+		expect(sc.disconnect).not.toHaveBeenCalled();
 	});
 });

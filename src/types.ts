@@ -52,6 +52,16 @@ export interface SoundCloudPlaylist {
 	tracks?: SoundCloudTrack[];
 }
 
+/** A station, from /system-playlists/{id}. Holds only tracks visible to the caller. */
+export interface SystemPlaylist {
+	urn: string;
+	title: string;
+	permalink_url: string;
+	playlist_type: string;
+	track_count: number;
+	tracks?: SoundCloudTrack[];
+}
+
 export interface SoundCloudComment {
 	id: number;
 	body: string;

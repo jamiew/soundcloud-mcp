@@ -7,6 +7,7 @@ import type {
 	SoundCloudPlaylist,
 	SoundCloudTrack,
 	SoundCloudUser,
+	SystemPlaylist,
 	TrackStreams,
 	WebProfile,
 } from "./types.js";
@@ -55,7 +56,9 @@ type Query = Record<string, string | number | boolean | undefined>;
 type TrackSort = "asc" | "desc";
 /** Likes and reposts are split by entity: /likes/tracks vs /likes/playlists. */
 type LibraryKind = "tracks" | "playlists";
-type LibraryItem = SoundCloudTrack | SoundCloudPlaylist;
+/** Only likes cover stations (system playlists). */
+type LikeKind = LibraryKind | "stations";
+type LibraryItem = SoundCloudTrack | SoundCloudPlaylist | SystemPlaylist;
 
 interface RequestSpec {
 	method?: "GET" | "POST" | "PUT" | "DELETE";
@@ -179,12 +182,14 @@ export class SoundCloudClient {
 		return this.page<SoundCloudPlaylist>(`/users/${toUrn("users", id)}/playlists`, { limit });
 	}
 	// Paths are spelled out per kind so the api-sync audit can match each literal.
-	getUserLikes(id: string | number, limit: number, kind: LibraryKind = "tracks") {
+	getUserLikes(id: string | number, limit: number, kind: LikeKind = "tracks") {
 		const user = toUrn("users", id);
-		return this.page<LibraryItem>(
-			kind === "playlists" ? `/users/${user}/likes/playlists` : `/users/${user}/likes/tracks`,
-			{ limit }
-		);
+		const paths = {
+			tracks: `/users/${user}/likes/tracks`,
+			playlists: `/users/${user}/likes/playlists`,
+			stations: `/users/${user}/likes/system-playlists`,
+		};
+		return this.page<LibraryItem>(paths[kind], { limit });
 	}
 	getUserReposts(id: string | number, limit: number, kind: LibraryKind = "tracks") {
 		const user = toUrn("users", id);
@@ -222,22 +227,29 @@ export class SoundCloudClient {
 			limit,
 		});
 	}
+	/** Takes a `soundcloud:system-playlists:…` URN or its `track-stations:{id}` part. */
+	getSystemPlaylist(id: string) {
+		return this.request<SystemPlaylist>(`/system-playlists/${id.trim()}`);
+	}
 	/** Turns a soundcloud.com permalink into the underlying API resource. */
 	resolve(url: string) {
-		return this.request<SoundCloudTrack | SoundCloudUser | SoundCloudPlaylist>("/resolve", {
-			query: { url },
-		});
+		return this.request<SoundCloudTrack | SoundCloudUser | SoundCloudPlaylist | SystemPlaylist>(
+			"/resolve",
+			{ query: { url } }
+		);
 	}
 
 	// --- Me / library ---
 	getMe() {
 		return this.request<SoundCloudUser>("/me");
 	}
-	getMyLikes(limit: number, kind: LibraryKind = "tracks") {
-		return this.page<LibraryItem>(
-			kind === "playlists" ? "/me/likes/playlists" : "/me/likes/tracks",
-			{ limit }
-		);
+	getMyLikes(limit: number, kind: LikeKind = "tracks") {
+		const paths = {
+			tracks: "/me/likes/tracks",
+			playlists: "/me/likes/playlists",
+			stations: "/me/likes/system-playlists",
+		};
+		return this.page<LibraryItem>(paths[kind], { limit });
 	}
 	getMyReposts(limit: number, kind: LibraryKind = "tracks") {
 		return this.page<LibraryItem>(
@@ -276,6 +288,10 @@ export class SoundCloudClient {
 	async getRecentlyPlayed(limit: number) {
 		const page = await this.page<SoundCloudTrack>("/me/recently-played/tracks", { limit });
 		return { ...page, collection: page.collection.slice(0, limit) };
+	}
+	/** Revokes this app's access for the user and invalidates every token it issued them. */
+	disconnect() {
+		return this.request<void>("/disconnect", { method: "POST" });
 	}
 
 	// --- Social writes ---

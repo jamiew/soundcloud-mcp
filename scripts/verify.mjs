@@ -123,6 +123,15 @@ check("get_my_likes", likes.ok, first(likes)?.track?.title ?? first(likes)?.titl
 const myLikedPlaylists = await call("get_my_likes", { limit: 3, kind: "playlists" });
 check("get_my_likes (playlists)", myLikedPlaylists.ok, first(myLikedPlaylists)?.title);
 
+const myLikedStations = await call("get_my_likes", { limit: 3, kind: "stations" });
+check("get_my_likes (stations)", myLikedStations.ok, first(myLikedStations)?.title);
+
+const stationUrn = profile.structured?.station_urn ?? track?.station_urn;
+if (stationUrn) {
+	const station = await call("get_station", { stationUrn });
+	check("get_station", station.ok, station.structured?.title ?? stationUrn);
+}
+
 check("get_my_reposts", (await call("get_my_reposts", { limit: 3 })).ok);
 check(
 	"get_my_reposts (playlists)",

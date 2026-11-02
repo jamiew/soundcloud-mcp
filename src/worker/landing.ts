@@ -23,6 +23,7 @@ export const TOOL_GROUPS: [string, string[]][] = [
 			"get_playlist",
 			"get_playlist_tracks",
 			"get_playlist_reposters",
+			"get_station",
 			"get_related_tracks",
 			"get_related_artists",
 			"get_stream_url",
@@ -73,6 +74,7 @@ export const TOOL_GROUPS: [string, string[]][] = [
 			"delete_playlist",
 		],
 	],
+	["Account", ["sign_out"]],
 ];
 
 const TOOL_COUNT = TOOL_GROUPS.reduce((n, [, list]) => n + list.length, 0);
