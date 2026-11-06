@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Dependencies refreshed within their majors (`hono`, `wrangler`, `vitest` 5.1, `biome`, `workers-types`). A pnpm override lifts `katex` to 0.18.2 for GHSA-238p-pmpm-9mq7, a low-severity dev-only path through `markdownlint-cli2`.
+
 ## 2026-11-01
 
 - The worker now uses `@cloudflare/workers-oauth-provider` 1.2 and `agents`
