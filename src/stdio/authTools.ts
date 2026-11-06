@@ -1,4 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import type { SoundCloudClient } from "../client.js";
 import { hasUserToken, loginWithBrowser, SIGN_OUT_MESSAGES, signOut } from "./oauth.js";
 

@@ -1,4 +1,4 @@
-import { type McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { type McpServer, ResourceTemplate } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import {
 	RateLimitedError,
@@ -176,7 +176,7 @@ export function registerTools(
 		{
 			title: "Search tracks",
 			description: "Search SoundCloud tracks by keyword, with optional genre/tag/BPM filters.",
-			inputSchema: {
+			inputSchema: z.object({
 				query: z.string().min(1),
 				limit,
 				genres: z.array(z.string()).optional().describe("e.g. ['Electronic','House']"),
@@ -186,7 +186,7 @@ export function registerTools(
 				durationFrom: z.number().optional().describe("Milliseconds"),
 				durationTo: z.number().optional().describe("Milliseconds"),
 				access: z.array(z.enum(["playable", "preview", "blocked"])).optional(),
-			},
+			}),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Search tracks", ...READ },
 		},
@@ -211,7 +211,7 @@ export function registerTools(
 		{
 			title: "Search playlists",
 			description: "Search SoundCloud playlists by keyword.",
-			inputSchema: { query: z.string().min(1), limit },
+			inputSchema: z.object({ query: z.string().min(1), limit }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Search playlists", ...READ },
 		},
@@ -223,7 +223,7 @@ export function registerTools(
 		{
 			title: "Search users",
 			description: "Search SoundCloud users/artists by keyword.",
-			inputSchema: { query: z.string().min(1), limit },
+			inputSchema: z.object({ query: z.string().min(1), limit }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Search users", ...READ },
 		},
@@ -236,7 +236,7 @@ export function registerTools(
 			title: "Resolve a SoundCloud URL",
 			description:
 				"Resolve a soundcloud.com or on.soundcloud.com link to a track, user, playlist, or station. Use for pasted SoundCloud links; pass station URNs to get_station.",
-			inputSchema: { url: z.string().url() },
+			inputSchema: z.object({ url: z.string().url() }),
 			annotations: { title: "Resolve a SoundCloud URL", ...READ },
 		},
 		async ({ url }) => run(() => sc.resolve(url))
@@ -247,7 +247,7 @@ export function registerTools(
 		{
 			title: "Get track",
 			description: "Get details for one track.",
-			inputSchema: { trackId: id },
+			inputSchema: z.object({ trackId: id }),
 			annotations: { title: "Get track", ...READ },
 		},
 		async ({ trackId }) => run(() => sc.getTrack(trackId), trackLinks)
@@ -258,7 +258,7 @@ export function registerTools(
 		{
 			title: "Get user",
 			description: "Get a user's public profile.",
-			inputSchema: { userId: id },
+			inputSchema: z.object({ userId: id }),
 			annotations: { title: "Get user", ...READ },
 		},
 		async ({ userId }) => run(() => sc.getUser(userId))
@@ -270,7 +270,7 @@ export function registerTools(
 			title: "Get an artist's tracks",
 			description:
 				"List a user's uploads. Find ids with search_users. Sort: asc for oldest first, desc for newest.",
-			inputSchema: { userId: id, limit, sort: trackSort },
+			inputSchema: z.object({ userId: id, limit, sort: trackSort }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's tracks", ...READ },
 		},
@@ -282,7 +282,7 @@ export function registerTools(
 		{
 			title: "Get an artist's playlists",
 			description: "List the playlists a user has published.",
-			inputSchema: { userId: id, limit },
+			inputSchema: z.object({ userId: id, limit }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's playlists", ...READ },
 		},
@@ -294,7 +294,7 @@ export function registerTools(
 		{
 			title: "Get an artist's likes",
 			description: "List tracks, playlists, or stations a user has liked.",
-			inputSchema: { userId: id, limit, kind: likeKind },
+			inputSchema: z.object({ userId: id, limit, kind: likeKind }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's likes", ...READ },
 		},
@@ -306,7 +306,7 @@ export function registerTools(
 		{
 			title: "Get an artist's reposts",
 			description: "List tracks or playlists a user has reposted.",
-			inputSchema: { userId: id, limit, kind: libraryKind },
+			inputSchema: z.object({ userId: id, limit, kind: libraryKind }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's reposts", ...READ },
 		},
@@ -318,7 +318,7 @@ export function registerTools(
 		{
 			title: "Get an artist's followers",
 			description: "List the users who follow a user.",
-			inputSchema: { userId: id, limit },
+			inputSchema: z.object({ userId: id, limit }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's followers", ...READ },
 		},
@@ -330,7 +330,7 @@ export function registerTools(
 		{
 			title: "Get who an artist follows",
 			description: "List the users a user follows.",
-			inputSchema: { userId: id, limit },
+			inputSchema: z.object({ userId: id, limit }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get who an artist follows", ...READ },
 		},
@@ -342,7 +342,7 @@ export function registerTools(
 		{
 			title: "Get an artist's links",
 			description: "List the external links on a user's profile, such as a website or socials.",
-			inputSchema: { userId: id, limit },
+			inputSchema: z.object({ userId: id, limit }),
 			outputSchema: LIST_OUT,
 			annotations: { title: "Get an artist's links", ...READ },
 		},
@@ -354,7 +354,7 @@ export function registerTools(
 		{
 			title: "Get playlist",
 			description: "Get a playlist's details and its tracks.",
-			inputSchema: { playlistId: id },
+			inputSchema: z.object({ playlistId: id }),
 			annotations: { title: "Get playlist", ...READ },
 		},
 		async ({ playlistId }) => run(() => sc.getPlaylist(playlistId), playlistLinks)
@@ -366,14 +366,14 @@ export function registerTools(
 			title: "Get station",
 			description:
 				"Get a station (system playlist) and its tracks. Tracks and users carry a station_urn; get_my_likes with kind=stations lists liked ones.",
-			inputSchema: {
+			inputSchema: z.object({
 				stationUrn: z
 					.string()
 					.min(1)
 					.describe(
 						"soundcloud:system-playlists:track-stations:123, or the part after soundcloud:system-playlists:"
 					),
-			},
+			}),
 			annotations: { title: "Get station", ...READ },
 		},
 		async ({ stationUrn }) => run(() => sc.getSystemPlaylist(stationUrn), playlistLinks)
@@ -384,7 +384,7 @@ export function registerTools(
 		{
 			title: "Get playlist tracks",
 			description: "List a page of playlist tracks.",
-			inputSchema: { playlistId: id, limit },
+			inputSchema: z.object({ playlistId: id, limit }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get playlist tracks", ...READ },
 		},
@@ -396,7 +396,7 @@ export function registerTools(
 		{
 			title: "Get playlist reposters",
 			description: "List the users who reposted a playlist.",
-			inputSchema: { playlistId: id, limit },
+			inputSchema: z.object({ playlistId: id, limit }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get playlist reposters", ...READ },
 		},
@@ -408,7 +408,7 @@ export function registerTools(
 		{
 			title: "Get related tracks",
 			description: "Find related tracks, starting with a track the user likes.",
-			inputSchema: { trackId: id, limit },
+			inputSchema: z.object({ trackId: id, limit }),
 			outputSchema: LIST_OUT,
 			annotations: { title: "Get related tracks", ...READ },
 		},
@@ -420,7 +420,7 @@ export function registerTools(
 		{
 			title: "Get related artists",
 			description: "Find artists related to a user.",
-			inputSchema: { userId: id, limit },
+			inputSchema: z.object({ userId: id, limit }),
 			outputSchema: LIST_OUT,
 			annotations: { title: "Get related artists", ...READ },
 		},
@@ -433,7 +433,7 @@ export function registerTools(
 			title: "Get stream URL",
 			description:
 				"Get temporary audio URLs: HLS for full tracks, MP3 for previews. Blocked tracks have no stream.",
-			inputSchema: { trackId: id },
+			inputSchema: z.object({ trackId: id }),
 			annotations: { title: "Get stream URL", ...READ },
 		},
 		async ({ trackId }) => run(() => sc.getTrackStreams(trackId), streamLinks)
@@ -444,7 +444,7 @@ export function registerTools(
 		{
 			title: "Get track comments",
 			description: "Get comments on a track, with their timestamps into the audio.",
-			inputSchema: { trackId: id, limit },
+			inputSchema: z.object({ trackId: id, limit }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get track comments", ...READ },
 		},
@@ -456,7 +456,7 @@ export function registerTools(
 		{
 			title: "Get track likers",
 			description: "List the users who liked a track.",
-			inputSchema: { trackId: id, limit },
+			inputSchema: z.object({ trackId: id, limit }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get track likers", ...READ },
 		},
@@ -468,7 +468,7 @@ export function registerTools(
 		{
 			title: "Get track reposters",
 			description: "List the users who reposted a track.",
-			inputSchema: { trackId: id, limit },
+			inputSchema: z.object({ trackId: id, limit }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get track reposters", ...READ },
 		},
@@ -481,7 +481,9 @@ export function registerTools(
 			title: "Next page",
 			description:
 				"Fetch next_href with a GET to the SoundCloud API (https://developers.soundcloud.com/docs/api/guide).",
-			inputSchema: { nextHref: z.string().url().describe("The next_href from a previous result") },
+			inputSchema: z.object({
+				nextHref: z.string().url().describe("The next_href from a previous result"),
+			}),
 			annotations: { title: "Next page", ...READ },
 		},
 		async ({ nextHref }) => run(() => sc.nextPage(nextHref))
@@ -503,7 +505,7 @@ export function registerTools(
 		{
 			title: "Get my likes",
 			description: "List tracks, playlists, or stations the connected user has liked.",
-			inputSchema: { limit, kind: likeKind },
+			inputSchema: z.object({ limit, kind: likeKind }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my likes", ...READ },
 		},
@@ -515,7 +517,7 @@ export function registerTools(
 		{
 			title: "Get my reposts",
 			description: "List tracks or playlists the connected user has reposted.",
-			inputSchema: { limit, kind: libraryKind },
+			inputSchema: z.object({ limit, kind: libraryKind }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my reposts", ...READ },
 		},
@@ -527,7 +529,7 @@ export function registerTools(
 		{
 			title: "Get my playlists",
 			description: "List the connected user's playlists.",
-			inputSchema: { limit },
+			inputSchema: z.object({ limit }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my playlists", ...READ },
 		},
@@ -540,7 +542,7 @@ export function registerTools(
 			title: "Get my uploads",
 			description:
 				"List the connected user's uploads. Sort: asc for oldest first, desc for newest.",
-			inputSchema: { limit, sort: trackSort },
+			inputSchema: z.object({ limit, sort: trackSort }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my uploads", ...READ },
 		},
@@ -552,7 +554,7 @@ export function registerTools(
 		{
 			title: "Get who I follow",
 			description: "List the users the connected user follows.",
-			inputSchema: { limit },
+			inputSchema: z.object({ limit }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get who I follow", ...READ },
 		},
@@ -564,7 +566,7 @@ export function registerTools(
 		{
 			title: "Get my followers",
 			description: "List the users who follow the connected user.",
-			inputSchema: { limit },
+			inputSchema: z.object({ limit }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my followers", ...READ },
 		},
@@ -577,7 +579,7 @@ export function registerTools(
 			title: "Check if I follow a user",
 			description:
 				"Check whether the connected user follows a user. Unknown users count as not followed.",
-			inputSchema: { userId: id },
+			inputSchema: z.object({ userId: id }),
 			outputSchema: z.looseObject({ following: z.boolean() }),
 			annotations: { title: "Check if I follow a user", ...READ },
 		},
@@ -590,7 +592,7 @@ export function registerTools(
 			title: "Get my feed",
 			description:
 				"List recent activity from people the connected user follows: tracks by default, or all for playlists too.",
-			inputSchema: { limit, kind: z.enum(["tracks", "all"]).default("tracks") },
+			inputSchema: z.object({ limit, kind: z.enum(["tracks", "all"]).default("tracks") }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my feed", ...READ },
 		},
@@ -602,7 +604,7 @@ export function registerTools(
 		{
 			title: "Get recently played",
 			description: "Tracks the connected user played recently, most recent first.",
-			inputSchema: { limit },
+			inputSchema: z.object({ limit }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get recently played", ...READ },
 		},
@@ -621,7 +623,7 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Like track",
 			description: "Like a track.",
-			inputSchema: { trackId: id },
+			inputSchema: z.object({ trackId: id }),
 			annotations: { title: "Like track", ...WRITE, idempotentHint: true },
 		},
 		async ({ trackId }) =>
@@ -636,7 +638,7 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Unlike track",
 			description: "Remove a like from a track.",
-			inputSchema: { trackId: id },
+			inputSchema: z.object({ trackId: id }),
 			annotations: { title: "Unlike track", ...WRITE, idempotentHint: true },
 		},
 		async ({ trackId }) =>
@@ -651,7 +653,7 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Repost track",
 			description: "Repost a track to the user's followers.",
-			inputSchema: { trackId: id },
+			inputSchema: z.object({ trackId: id }),
 			annotations: { title: "Repost track", ...WRITE, idempotentHint: true },
 		},
 		async ({ trackId }) =>
@@ -666,7 +668,7 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Remove repost",
 			description: "Remove a repost of a track.",
-			inputSchema: { trackId: id },
+			inputSchema: z.object({ trackId: id }),
 			annotations: { title: "Remove repost", ...WRITE, idempotentHint: true },
 		},
 		async ({ trackId }) =>
@@ -681,7 +683,7 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Like playlist",
 			description: "Like a playlist or a station.",
-			inputSchema: { playlistId: id },
+			inputSchema: z.object({ playlistId: id }),
 			annotations: { title: "Like playlist", ...WRITE, idempotentHint: true },
 		},
 		async ({ playlistId }) =>
@@ -696,7 +698,7 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Unlike playlist",
 			description: "Remove a like from a playlist or a station.",
-			inputSchema: { playlistId: id },
+			inputSchema: z.object({ playlistId: id }),
 			annotations: { title: "Unlike playlist", ...WRITE, idempotentHint: true },
 		},
 		async ({ playlistId }) =>
@@ -711,7 +713,7 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Repost playlist",
 			description: "Repost a playlist to the user's followers.",
-			inputSchema: { playlistId: id },
+			inputSchema: z.object({ playlistId: id }),
 			annotations: { title: "Repost playlist", ...WRITE, idempotentHint: true },
 		},
 		async ({ playlistId }) =>
@@ -726,7 +728,7 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Remove playlist repost",
 			description: "Remove a repost of a playlist.",
-			inputSchema: { playlistId: id },
+			inputSchema: z.object({ playlistId: id }),
 			annotations: { title: "Remove playlist repost", ...WRITE, idempotentHint: true },
 		},
 		async ({ playlistId }) =>
@@ -741,7 +743,7 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Follow user",
 			description: "Follow a user.",
-			inputSchema: { userId: id },
+			inputSchema: z.object({ userId: id }),
 			annotations: { title: "Follow user", ...WRITE, idempotentHint: true },
 		},
 		async ({ userId }) =>
@@ -756,7 +758,7 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Unfollow user",
 			description: "Unfollow a user.",
-			inputSchema: { userId: id },
+			inputSchema: z.object({ userId: id }),
 			annotations: { title: "Unfollow user", ...WRITE, idempotentHint: true },
 		},
 		async ({ userId }) =>
@@ -772,11 +774,11 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 			title: "Add comment",
 			description:
 				"Post a comment with an optional timestamp. Comments must be enabled; the API has no undo.",
-			inputSchema: {
+			inputSchema: z.object({
 				trackId: id,
 				body: z.string().min(1),
 				timestamp: z.number().int().min(0).optional().describe("Milliseconds into the track"),
-			},
+			}),
 			annotations: { title: "Add comment", ...WRITE },
 		},
 		async ({ trackId, body, timestamp }) => run(() => sc.addComment(trackId, body, timestamp))
@@ -788,12 +790,12 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Create playlist",
 			description: "Create a playlist with optional tracks. Private by default.",
-			inputSchema: {
+			inputSchema: z.object({
 				title: z.string().min(1),
 				description: z.string().optional(),
 				sharing: z.enum(["public", "private"]).default("private"),
 				trackIds: z.array(id).optional(),
-			},
+			}),
 			annotations: { title: "Create playlist", ...WRITE },
 		},
 		async ({ title, description, sharing, trackIds }) =>
@@ -815,13 +817,13 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 			title: "Update playlist",
 			description:
 				"Edit a playlist's title, description, or sharing. trackIds replaces and orders the entire tracklist.",
-			inputSchema: {
+			inputSchema: z.object({
 				playlistId: id,
 				title: z.string().optional(),
 				description: z.string().optional(),
 				sharing: z.enum(["public", "private"]).optional(),
 				trackIds: z.array(id).optional().describe("Replaces the tracklist entirely, in this order"),
-			},
+			}),
 			annotations: { title: "Update playlist", ...DESTRUCTIVE },
 		},
 		async ({ playlistId, ...updates }) =>
@@ -833,7 +835,7 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Add tracks to playlist",
 			description: "Append tracks to an existing playlist.",
-			inputSchema: { playlistId: id, trackIds: z.array(id).min(1) },
+			inputSchema: z.object({ playlistId: id, trackIds: z.array(id).min(1) }),
 			annotations: { title: "Add tracks to playlist", ...WRITE },
 		},
 		async ({ playlistId, trackIds }) =>
@@ -845,7 +847,7 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Remove track from playlist",
 			description: "Remove one track from a playlist.",
-			inputSchema: { playlistId: id, trackId: id },
+			inputSchema: z.object({ playlistId: id, trackId: id }),
 			annotations: { title: "Remove track from playlist", ...DESTRUCTIVE },
 		},
 		async ({ playlistId, trackId }) =>
@@ -857,7 +859,7 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Delete playlist",
 			description: "Delete a playlist permanently.",
-			inputSchema: { playlistId: id },
+			inputSchema: z.object({ playlistId: id }),
 			annotations: { title: "Delete playlist", ...DESTRUCTIVE },
 		},
 		async ({ playlistId }) =>
@@ -962,7 +964,7 @@ function registerPrompts(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Discover similar tracks",
 			description: "Find tracks similar to one you like",
-			argsSchema: { trackId: z.string() },
+			argsSchema: z.object({ trackId: z.string() }),
 		},
 		async ({ trackId }) => {
 			const [track, related] = await Promise.all([
@@ -988,7 +990,7 @@ function registerPrompts(server: McpServer, sc: SoundCloudClient): void {
 		{
 			title: "Discover new music",
 			description: "Find music based on your likes, genres, and mood",
-			argsSchema: { genres: z.string().optional(), mood: z.string().optional() },
+			argsSchema: z.object({ genres: z.string().optional(), mood: z.string().optional() }),
 		},
 		async ({ genres, mood }) => {
 			const seed = genres?.split(",")[0]?.trim();

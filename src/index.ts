@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { McpServer } from "@modelcontextprotocol/server";
+import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import { SoundCloudClient } from "./client.js";
 import { instructions, serverInfo } from "./server.js";
 import { registerAuthTools } from "./stdio/authTools.js";
@@ -16,24 +16,21 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
 	process.exit(1);
 }
 
-const server = new McpServer(serverInfo("soundcloud", "1.0.0"), {
-	instructions: instructions(
-		"- Public search needs no login. Use `connect_soundcloud` for personal data and writes."
-	),
-});
-
 // Use a user token when logged in, otherwise cached client credentials.
 const sc = new SoundCloudClient(tokenProvider);
-registerTools(server, sc);
-registerAuthTools(server, sc);
 
-async function main() {
-	const transport = new StdioServerTransport();
-	await server.connect(transport);
-	logError("SoundCloud MCP server running on stdio");
-}
-
-main().catch((error) => {
-	logError("Fatal error:", error);
-	process.exit(1);
-});
+// serveStdio picks the protocol era from the client's first message.
+serveStdio(
+	() => {
+		const server = new McpServer(serverInfo("soundcloud", "1.0.0"), {
+			instructions: instructions(
+				"- Public search needs no login. Use `connect_soundcloud` for personal data and writes."
+			),
+		});
+		registerTools(server, sc);
+		registerAuthTools(server, sc);
+		return server;
+	},
+	{ onerror: (error) => logError("MCP error:", error) }
+);
+logError("SoundCloud MCP server running on stdio");
