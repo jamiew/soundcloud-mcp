@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2026-11-07 — 1.1.0
 
 - Moved both servers to MCP SDK v2 (`@modelcontextprotocol/server` 2.4) and
   `agents` 0.33. They now serve the 2026-07-28 protocol alongside 2025-era
@@ -23,6 +23,11 @@
 - Dropped the `nanoid`, `source-map-js` and `vite` pnpm overrides. `postcss`
   now requires the fixed `nanoid` and `source-map-js`, and the lockfile already
   resolves Vite 8.3.5.
+- Without a local login, a library tool like `get_profile` now asks you to call
+  `connect_soundcloud`. Before, each such call minted a new public token and
+  could burn through SoundCloud's limit of 50 per 12 hours.
+- The hosted landing page mentions the allowlist only when `ALLOWED_USERS` is
+  set.
 
 ## 2026-11-01
 

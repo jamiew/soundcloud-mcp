@@ -103,7 +103,7 @@ describe.each(eras)("worker /mcp ($era era)", ({ era, options }) => {
 		const { tools } = await client.listTools();
 		await client.close();
 
-		const page = landingPage("https://x.dev", writes);
+		const page = landingPage("https://x.dev", writes, false);
 		const listed = [...page.matchAll(/<li><code>(\w+)<\/code><\/li>/g)].map((m) => m[1]);
 		expect(tools.map((tool) => tool.name).sort()).toEqual(listed.sort());
 	});

@@ -178,7 +178,9 @@ async function getCachedClientCredentialsToken(): Promise<string> {
 /**
  * The API client's tokens: the logged-in user's when there is one (library and
  * writes), otherwise cached client credentials for public calls.
- * `refreshAccessToken` runs after an unexpected 401 to force a new token.
+ * `refreshAccessToken` runs after an unexpected 401. Without a login, a 401
+ * means the call needs a user, so fail instead of minting another public token
+ * (SoundCloud allows 50 per 12 hours).
  */
 export const tokenProvider: TokenProvider = {
 	getAccessToken: () =>
@@ -189,8 +191,9 @@ export const tokenProvider: TokenProvider = {
 			const refreshed = await refreshToken(tokens.refresh_token);
 			return refreshed.access_token;
 		}
-		cachedClientToken = null;
-		return getCachedClientCredentialsToken();
+		throw new SoundCloudAuthError(
+			"This needs a SoundCloud login. Call connect_soundcloud, then try again."
+		);
 	},
 };
 

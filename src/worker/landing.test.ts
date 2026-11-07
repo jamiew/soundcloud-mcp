@@ -3,7 +3,7 @@ import { landingPage } from "./landing.js";
 
 // mcp.test.ts checks the listed tools against the ones the worker serves.
 describe("landingPage", () => {
-	const html = landingPage("https://soundcloud-mcp.example.workers.dev", true);
+	const html = landingPage("https://soundcloud-mcp.example.workers.dev", true, true);
 
 	it("gives a copy-pasteable Claude Code install line for its origin", () => {
 		expect(html).toContain(
@@ -17,10 +17,17 @@ describe("landingPage", () => {
 	});
 
 	it("escapes the origin rather than interpolating it raw", () => {
-		expect(landingPage('https://x.dev"><script>alert(1)</script>', true)).not.toContain("<script>");
+		expect(landingPage('https://x.dev"><script>alert(1)</script>', true, true)).not.toContain(
+			"<script>"
+		);
 	});
 
 	it("links the privacy page", () => {
 		expect(html).toContain('href="/privacy"');
+	});
+
+	it("mentions the allowlist only when one is set", () => {
+		expect(html).toContain("approved SoundCloud account");
+		expect(landingPage("https://x.dev", true, false)).not.toContain("approved SoundCloud account");
 	});
 });

@@ -3,7 +3,7 @@
 import { INLINE_ICON } from "./icon.js";
 
 // Keep in sync with package.json; a test checks it.
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 
 export function serverInfo(name: string, icons = [INLINE_ICON]) {
 	return {

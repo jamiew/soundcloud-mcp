@@ -103,6 +103,26 @@ describe("getClientCredentialsToken", () => {
 	});
 });
 
+describe("tokenProvider without a login", () => {
+	afterEach(() => vi.unstubAllGlobals());
+
+	it("asks for a login on a 401 instead of minting another public token", async () => {
+		const fetchMock = vi.fn(async (url: string | URL | Request) =>
+			String(url).includes("/oauth/token")
+				? Response.json({ access_token: "cc-token", expires_in: 3600 })
+				: new Response("", { status: 401 })
+		);
+		vi.stubGlobal("fetch", fetchMock);
+		const sc = new SoundCloudClient(tokenProvider);
+
+		for (let call = 0; call < 3; call++) {
+			await expect(sc.getMe()).rejects.toThrow("connect_soundcloud");
+		}
+		const mints = fetchMock.mock.calls.filter(([url]) => String(url).includes("/oauth/token"));
+		expect(mints).toHaveLength(1);
+	});
+});
+
 describe("getValidAccessToken", () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();

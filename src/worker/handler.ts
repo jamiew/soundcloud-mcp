@@ -74,12 +74,14 @@ async function redirectToSoundCloud(
 	});
 }
 
-app.get("/", (c) =>
-	c.html(landingPage(new URL(c.req.url).origin, writesEnabled(c.env)), 200, {
+app.get("/", (c) => {
+	// An unset or empty allowlist lets every account through, even one with no identifiers.
+	const restricted = !isAccountAllowed([], c.env.ALLOWED_USERS);
+	return c.html(landingPage(new URL(c.req.url).origin, writesEnabled(c.env), restricted), 200, {
 		// Short, so a deploy's changes show up promptly.
 		"Cache-Control": "public, max-age=300",
-	})
-);
+	});
+});
 
 app.get("/privacy", (c) => c.html(privacyPage(), 200, { "Cache-Control": "public, max-age=300" }));
 

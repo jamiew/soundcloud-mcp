@@ -85,8 +85,8 @@ const DESCRIPTION = "Search SoundCloud and manage your library with an AI assist
 const escapeHtml = (s: string) =>
 	s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-/** Renders the install page using the request origin. */
-export function landingPage(origin: string, writes: boolean): string {
+/** Renders the install page using the request origin. `restricted`: an allowlist is set. */
+export function landingPage(origin: string, writes: boolean, restricted: boolean): string {
 	const mcpUrl = `${origin}/mcp`;
 	const groups = TOOL_GROUPS.filter(([name]) => writes || !WRITE_GROUPS.includes(name));
 	const toolCount = groups.reduce((n, [, list]) => n + list.length, 0);
@@ -189,10 +189,14 @@ export function landingPage(origin: string, writes: boolean): string {
     then sign in to SoundCloud when prompted.
   </p>
 
-  <div class="note">
+  ${
+		restricted
+			? `<div class="note">
     Access requires an approved SoundCloud account.
     Not on the allowlist? <a href="${REPO_URL}">Deploy your own server</a>.
-  </div>
+  </div>`
+			: ""
+	}
 
   <h2>Tools <span class="count">${toolCount}</span></h2>
   <div class="groups">${tools}</div>
