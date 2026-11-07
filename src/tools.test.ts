@@ -5,6 +5,8 @@ import { SoundCloudClient } from "./client.js";
 import { registerAuthTools } from "./stdio/authTools.js";
 import { registerTools } from "./tools.js";
 
+type Upstream = (url: string, init: RequestInit) => Response | Promise<Response>;
+
 /** Connects an SDK client in process. `upstream` answers every SoundCloud request. */
 async function connect({
 	writes = true,
@@ -13,13 +15,13 @@ async function connect({
 }: {
 	writes?: boolean;
 	auth?: boolean;
-	upstream?: () => Response;
+	upstream?: Upstream;
 } = {}) {
 	const token = async () => "token";
 	const sc = new SoundCloudClient(
 		{ getAccessToken: token, refreshAccessToken: token },
 		undefined,
-		async () => upstream()
+		async (url, init) => upstream(String(url), init ?? {})
 	);
 	const server = new McpServer({ name: "test", version: "0" });
 	registerTools(server, sc, { writes });
@@ -60,6 +62,26 @@ describe("tool metadata", async () => {
 		const readOnly = await listTools({ writes: false, auth: false });
 		const writable = readOnly.filter((tool) => !tool.annotations?.readOnlyHint);
 		expect(writable.map((tool) => tool.name)).toEqual([]);
+	});
+});
+
+describe("cancellation", () => {
+	it("aborts the SoundCloud request when the client cancels the tool call", async () => {
+		const upstreamSignal = Promise.withResolvers<AbortSignal>();
+		const client = await connect({
+			upstream: (_url, init) => {
+				if (init.signal) upstreamSignal.resolve(init.signal);
+				return Promise.withResolvers<Response>().promise;
+			},
+		});
+		const cancel = new AbortController();
+		const call = client.callTool({ name: "get_profile", arguments: {} }, { signal: cancel.signal });
+		const signal = await upstreamSignal.promise;
+
+		cancel.abort();
+		await expect(call).rejects.toThrow();
+		await expect.poll(() => signal.aborted).toBe(true);
+		await client.close();
 	});
 });
 

@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { RateLimitedError, SoundCloudAuthError, SoundCloudClient, toUrn } from "./client.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+	RateLimitedError,
+	REQUEST_TIMEOUT_MS,
+	SoundCloudAuthError,
+	SoundCloudClient,
+	toUrn,
+} from "./client.js";
 
 /** A token provider that counts refreshes, so retry behavior is observable. */
 function tokens(initial = "tok-1") {
@@ -31,6 +37,19 @@ function stubFetch(responses: Response[]) {
 
 const json = (body: unknown, status = 200) =>
 	new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+
+/** A fetch that never answers, like a stalled upstream, until its signal aborts. */
+const stalledFetch = (async (_url: string | URL | Request, init: RequestInit = {}) => {
+	const { promise, reject } = Promise.withResolvers<Response>();
+	const signal = init.signal;
+	if (signal?.aborted) reject(signal.reason);
+	signal?.addEventListener("abort", () => reject(signal.reason));
+	return promise;
+}) as unknown as typeof fetch;
+
+afterEach(() => {
+	vi.restoreAllMocks();
+});
 
 describe("toUrn", () => {
 	it("normalizes numeric and string ids to URNs", () => {
@@ -79,6 +98,42 @@ describe("SoundCloudClient", () => {
 		const client = new SoundCloudClient(tokens().provider, undefined, impl);
 
 		await expect(client.getMe()).rejects.toBeInstanceOf(RateLimitedError);
+	});
+
+	it("says how long to wait when SoundCloud sends Retry-After", async () => {
+		const limited = (retryAfter: string) =>
+			new Response("{}", { status: 429, headers: { "Retry-After": retryAfter } });
+		const inTwoMinutes = new Date(Date.now() + 120_000).toUTCString();
+		const { impl } = stubFetch([limited("30"), limited(inTwoMinutes), limited("soon")]);
+		const client = new SoundCloudClient(tokens().provider, undefined, impl);
+
+		await expect(client.getMe()).rejects.toThrow("Try again in 30 seconds.");
+		await expect(client.getMe()).rejects.toThrow(/Try again in 1(19|20) seconds\./);
+		await expect(client.getMe()).rejects.toThrow("Wait a moment");
+	});
+
+	it("gives up on a stalled request at the deadline", async () => {
+		const deadline = new AbortController();
+		const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
+		const client = new SoundCloudClient(tokens().provider, undefined, stalledFetch);
+
+		const pending = client.getMe();
+		deadline.abort(new DOMException("timed out", "TimeoutError"));
+
+		await expect(pending).rejects.toMatchObject({ status: 504, message: expect.any(String) });
+		expect(timeout).toHaveBeenCalledWith(REQUEST_TIMEOUT_MS);
+	});
+
+	it("stops a request when the MCP call is cancelled", async () => {
+		const cancel = new AbortController();
+		const client = new SoundCloudClient(tokens().provider, undefined, stalledFetch).withSignal(
+			cancel.signal
+		);
+
+		const pending = client.getMe();
+		cancel.abort();
+
+		await expect(pending).rejects.toMatchObject({ name: "AbortError" });
 	});
 
 	it("keeps upstream error details out of client-facing errors", async () => {

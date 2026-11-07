@@ -37,11 +37,28 @@ export class SoundCloudAuthError extends Error {
 }
 
 export class RateLimitedError extends Error {
-	constructor() {
-		super("SoundCloud is rate limiting right now. Wait a moment and try again.");
+	constructor(retryAfterSeconds?: number) {
+		super(
+			retryAfterSeconds === undefined
+				? "SoundCloud is rate limiting right now. Wait a moment and try again."
+				: `SoundCloud is rate limiting right now. Try again in ${retryAfterSeconds} seconds.`
+		);
 		this.name = "RateLimitedError";
 	}
 }
+
+/** Reads Retry-After as delay seconds or an HTTP date. */
+function retryAfterSeconds(header: string | null, now = Date.now()): number | undefined {
+	if (!header) return undefined;
+	const value = header.trim();
+	if (/^\d+$/.test(value)) return Number(value);
+	const date = Date.parse(value);
+	if (Number.isNaN(date)) return undefined;
+	return Math.max(0, Math.ceil((date - now) / 1000));
+}
+
+/** Upper bound for one API call, including a retry after a token refresh. */
+export const REQUEST_TIMEOUT_MS = 20_000;
 
 export interface TokenProvider {
 	getAccessToken(): Promise<string>;
@@ -76,8 +93,14 @@ export class SoundCloudClient {
 		private readonly baseUrl: string = API_BASE,
 		// Must stay bound: Workers throws "Illegal invocation" if the global fetch
 		// is called with anything but the global object as `this`.
-		private readonly fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis)
+		private readonly fetchImpl: typeof fetch = globalThis.fetch.bind(globalThis),
+		private readonly signal?: AbortSignal
 	) {}
+
+	/** A client whose requests also stop when `signal` aborts, such as a cancelled MCP call. */
+	withSignal(signal: AbortSignal): SoundCloudClient {
+		return new SoundCloudClient(this.tokens, this.baseUrl, this.fetchImpl, signal);
+	}
 
 	async request<T>(path: string, spec: RequestSpec = {}): Promise<T> {
 		const url = path.startsWith("http") ? new URL(path) : new URL(this.baseUrl + path);
@@ -89,11 +112,24 @@ export class SoundCloudClient {
 			if (value !== undefined) url.searchParams.set(key, String(value));
 		}
 
+		const deadline = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+		const signal = this.signal ? AbortSignal.any([this.signal, deadline]) : deadline;
+		try {
+			return await this.attempt<T>(url.toString(), spec, signal);
+		} catch (error) {
+			if (deadline.aborted && !this.signal?.aborted) {
+				throw new SoundCloudApiError("SoundCloud did not answer in time. Try again.", 504);
+			}
+			throw error;
+		}
+	}
+
+	private async attempt<T>(url: string, spec: RequestSpec, signal: AbortSignal): Promise<T> {
 		let token = await this.tokens.getAccessToken();
 		let refreshed = false;
 
 		for (;;) {
-			const response = await this.send(url.toString(), token, spec);
+			const response = await this.send(url, token, spec, signal);
 
 			if (response.status === 401) {
 				if (refreshed) throw new SoundCloudAuthError();
@@ -101,7 +137,9 @@ export class SoundCloudClient {
 				token = await this.tokens.refreshAccessToken();
 				continue;
 			}
-			if (response.status === 429) throw new RateLimitedError();
+			if (response.status === 429) {
+				throw new RateLimitedError(retryAfterSeconds(response.headers.get("Retry-After")));
+			}
 
 			if (!response.ok) {
 				const message =
@@ -117,7 +155,12 @@ export class SoundCloudClient {
 		}
 	}
 
-	private send(url: string, token: string, spec: RequestSpec): Promise<Response> {
+	private send(
+		url: string,
+		token: string,
+		spec: RequestSpec,
+		signal: AbortSignal
+	): Promise<Response> {
 		const headers: Record<string, string> = {
 			// SoundCloud uses the `OAuth` scheme, not `Bearer`.
 			Authorization: `OAuth ${token}`,
@@ -131,6 +174,7 @@ export class SoundCloudClient {
 		return this.fetchImpl(url, {
 			method: spec.method ?? "GET",
 			headers,
+			signal,
 			...(body !== undefined ? { body } : {}),
 		});
 	}

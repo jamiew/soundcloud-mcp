@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Each SoundCloud API call now gives up after 20 seconds with a short "did not
+  answer in time" error instead of hanging. Cancelling a tool call, resource
+  read or prompt also stops its SoundCloud requests.
+- When SoundCloud rate limits a call and sends `Retry-After`, the error now says
+  how many seconds to wait.
+- The server version comes from `package.json`, so it can no longer drift.
+
 ## 2026-11-07 — 1.1.0
 
 - Moved both servers to MCP SDK v2 (`@modelcontextprotocol/server` 2.4) and
