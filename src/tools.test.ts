@@ -177,6 +177,47 @@ describe("compact results", () => {
 		expect(profile.structuredContent).not.toHaveProperty("subscriptions");
 	});
 
+	it("lists playlists by track_count without their tracklists", async () => {
+		const playlist = {
+			urn: "soundcloud:playlists:3",
+			title: "Live",
+			track_count: 1,
+			tracks: [track],
+		};
+		const station = { ...playlist, urn: "soundcloud:system-playlists:track-stations:1" };
+		const feed = { collection: [{ type: "playlist", playlist }] };
+		const page = { collection: [playlist, station] };
+
+		const listed = await call("get_my_playlists", {}, page);
+		expect(listed.structuredContent).toEqual({
+			collection: [
+				{ urn: "soundcloud:playlists:3", title: "Live", track_count: 1 },
+				{ urn: "soundcloud:system-playlists:track-stations:1", title: "Live", track_count: 1 },
+			],
+		});
+		const inFeed = await call("get_feed", {}, feed);
+		expect(inFeed.structuredContent).not.toHaveProperty(["collection", 0, "playlist", "tracks"]);
+		const verbose = await call("get_my_playlists", { verbose: true }, page);
+		expect(verbose.structuredContent).toEqual(page);
+	});
+
+	it("drops utm tracking parameters from permalinks and keeps the rest", async () => {
+		const tracking = "utm_medium=api&utm_campaign=social_sharing&utm_source=id_316169";
+		const linked = {
+			...track,
+			permalink_url: `https://soundcloud.com/a/b/s-SECRET?si=keep&${tracking}`,
+			user: { ...uploader, permalink_url: `https://soundcloud.com/a?${tracking}` },
+		};
+
+		const compactResult = await call("get_track", { trackId: 1 }, linked);
+		expect(compactResult.structuredContent).toMatchObject({
+			permalink_url: "https://soundcloud.com/a/b/s-SECRET?si=keep",
+			user: { permalink_url: "https://soundcloud.com/a" },
+		});
+		const verbose = await call("get_track", { trackId: 1, verbose: true }, linked);
+		expect(verbose.structuredContent).toMatchObject({ permalink_url: linked.permalink_url });
+	});
+
 	// next_page, resolve_url and the feed hold whatever the endpoint returns,
 	// so entities are recognized by URN wherever they sit.
 	it("recognizes entities by URN inside unchecked results and wrappers", async () => {

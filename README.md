@@ -180,7 +180,9 @@ SoundCloud and deletes your stored tokens for every connected client.
 - Stream URLs expire, and blocked tracks have no stream. Full tracks stream over
   HLS; the only MP3 is a short preview.
 - Results list each track, user and playlist compactly: ids and URNs, title or
-  name, uploader, duration, links, counts, access and dates. Pass
+  name, uploader, duration, links, counts, access and dates. Playlists in a
+  list show `track_count` without their tracks; read one with `get_playlist`
+  for its tracklist. Permalinks drop `utm_*` tracking parameters. Pass
   `verbose: true` to get every field SoundCloud sends, such as descriptions.
   Resources return full objects.
 

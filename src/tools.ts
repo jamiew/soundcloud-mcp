@@ -13,6 +13,7 @@ import {
 } from "./client.js";
 import {
 	CompactPlaylist,
+	CompactPlaylistSummary,
 	CompactTrack,
 	CompactUser,
 	type SoundCloudPlaylist,
@@ -73,12 +74,14 @@ function ok(data: unknown, extra: ContentBlock[] = []): ToolResult {
 	return result;
 }
 
-// The URN's second part names the entity, e.g. soundcloud:tracks:123.
-const COMPACT: Record<string, z.ZodType> = {
-	tracks: CompactTrack,
-	users: CompactUser,
-	playlists: CompactPlaylist,
-	"system-playlists": CompactPlaylist,
+// The URN's second part names the entity, e.g. soundcloud:tracks:123. A
+// playlist read on its own keeps its tracklist; one inside a list keeps only
+// track_count, since a page of playlists would otherwise repeat every track.
+const COMPACT: Record<string, [single: z.ZodType, listed: z.ZodType]> = {
+	tracks: [CompactTrack, CompactTrack],
+	users: [CompactUser, CompactUser],
+	playlists: [CompactPlaylist, CompactPlaylistSummary],
+	"system-playlists": [CompactPlaylist, CompactPlaylistSummary],
 };
 
 /**
@@ -86,14 +89,16 @@ const COMPACT: Record<string, z.ZodType> = {
  * fields in types.ts. Anything else, such as page envelopes, feed wrappers and
  * comments, keeps its own fields.
  */
-export function compact(value: unknown): unknown {
-	if (Array.isArray(value)) return value.map(compact);
+export function compact(value: unknown, top = true): unknown {
+	if (Array.isArray(value)) return value.map((item) => compact(item, false));
 	if (typeof value !== "object" || value === null) return value;
 	const kind = "urn" in value && typeof value.urn === "string" ? value.urn.split(":")[1] : "";
-	const schema = kind ? COMPACT[kind] : undefined;
+	const schema = kind ? COMPACT[kind]?.[top ? 0 : 1] : undefined;
 	const parsed = schema?.safeParse(value);
 	if (parsed?.success) return parsed.data;
-	return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, compact(item)]));
+	return Object.fromEntries(
+		Object.entries(value).map(([key, item]) => [key, compact(item, false)])
+	);
 }
 
 // Keep API errors short and actionable.

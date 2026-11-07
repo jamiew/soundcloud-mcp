@@ -10,8 +10,10 @@
 - Tool results are smaller. Each track, user and playlist now carries only the
   fields a model needs: ids, URNs, title or name, uploader, duration, links,
   counts, access and dates. Descriptions and fields like `waveform_url` or
-  `subscriptions` are gone unless you pass `verbose: true`. A 10-track search
-  drops from about 30 KB to 9 KB, and a 28-track playlist from 148 KB to 25 KB.
+  `subscriptions` are gone unless you pass `verbose: true`. Playlists inside
+  lists keep `track_count` but not their tracks, and permalinks lose their
+  `utm_*` tracking parameters. A 10-track search drops from about 30 KB to
+  7 KB, and `get_my_playlists` with 5 playlists from 83 KB to 1.3 KB.
   Prompts embed the compact form; resources still return full objects.
 - API responses are now checked against the fields the server reads, instead
   of being trusted as typed. A response with a wrongly typed field returns a

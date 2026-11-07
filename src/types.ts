@@ -83,16 +83,34 @@ export const PlaylistSchema = z.looseObject({
 	tracks: z.array(TrackSchema).nullish(),
 });
 
+/** Drops the `utm_*` tracking parameters SoundCloud appends to every permalink. */
+export function stripTracking(link: string): string {
+	let url: URL;
+	try {
+		url = new URL(link);
+	} catch {
+		return link;
+	}
+	const tracking = [...url.searchParams.keys()].filter((key) => key.startsWith("utm_"));
+	if (tracking.length === 0) return link;
+	for (const key of tracking) url.searchParams.delete(key);
+	return url.href;
+}
+
 // Compact results: `z.object` strips every field the shapes above leave out.
 // Tracks and playlists name their creator rather than repeating the profile.
-const creator = z.object(creatorShape).nullish();
-export const CompactUser = z.object(userShape);
-export const CompactTrack = z.object({ ...trackShape, user: creator });
+const permalink = { permalink_url: text.transform((link) => link && stripTracking(link)) };
+const creator = z.object({ ...creatorShape, ...permalink }).nullish();
+export const CompactUser = z.object({ ...userShape, ...permalink });
+export const CompactTrack = z.object({ ...trackShape, ...permalink, user: creator });
 export const CompactPlaylist = z.object({
 	...playlistShape,
+	...permalink,
 	user: creator,
 	tracks: z.array(CompactTrack).nullish(),
 });
+/** A playlist inside a list result: `track_count` stays, the tracklist goes. */
+export const CompactPlaylistSummary = CompactPlaylist.omit({ tracks: true });
 
 export type SoundCloudUser = z.infer<typeof UserSchema>;
 export type SoundCloudTrack = z.infer<typeof TrackSchema>;
