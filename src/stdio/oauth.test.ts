@@ -152,6 +152,38 @@ describe("getValidAccessToken", () => {
 		expect(store.token?.refresh_token).toBe("refresh-2");
 	});
 
+	// The caller can give up on a refresh, but the refresh token is already
+	// spent at SoundCloud, so its replacement must still reach the token file.
+	it("still saves a refresh that finishes after the caller cancelled", async () => {
+		store.token = {
+			access_token: "expired",
+			refresh_token: "refresh-1",
+			expires_in: 3600,
+			obtained_at: 0,
+		};
+		const tokenResponse = Promise.withResolvers<Response>();
+		const refreshSent = Promise.withResolvers<void>();
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => {
+				refreshSent.resolve();
+				return tokenResponse.promise;
+			})
+		);
+		const cancel = new AbortController();
+		const sc = new SoundCloudClient(tokenProvider).withSignal(cancel.signal);
+
+		const pending = sc.getMe();
+		await refreshSent.promise;
+		cancel.abort();
+		await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+
+		tokenResponse.resolve(
+			Response.json({ access_token: "fresh", refresh_token: "refresh-2", expires_in: 3600 })
+		);
+		await expect.poll(() => store.token?.refresh_token).toBe("refresh-2");
+	});
+
 	it("tells tools how to log in again when the token cannot be refreshed", async () => {
 		store.token = { access_token: "expired", expires_in: 3600, obtained_at: 0 };
 		const server = new McpServer({ name: "test", version: "0" });

@@ -136,6 +136,44 @@ describe("SoundCloudClient", () => {
 		await expect(pending).rejects.toMatchObject({ name: "AbortError" });
 	});
 
+	// A token provider can stall too, e.g. on a slow refresh. The caller must
+	// still be released by the deadline or a cancellation.
+	it("gives up on a stalled token lookup at the deadline", async () => {
+		const stalled = () => Promise.withResolvers<string>().promise;
+		const deadline = new AbortController();
+		vi.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
+		const client = new SoundCloudClient(
+			{ getAccessToken: stalled, refreshAccessToken: stalled },
+			undefined,
+			stalledFetch
+		);
+
+		const pending = client.getMe();
+		deadline.abort(new DOMException("timed out", "TimeoutError"));
+
+		await expect(pending).rejects.toMatchObject({ status: 504 });
+	});
+
+	it("stops waiting for a stalled refresh when the MCP call is cancelled", async () => {
+		const refreshStarted = Promise.withResolvers<void>();
+		const provider = {
+			getAccessToken: async () => "tok-1",
+			refreshAccessToken: () => {
+				refreshStarted.resolve();
+				return Promise.withResolvers<string>().promise;
+			},
+		};
+		const cancel = new AbortController();
+		const { impl } = stubFetch([json({}, 401)]);
+		const client = new SoundCloudClient(provider, undefined, impl).withSignal(cancel.signal);
+
+		const pending = client.getMe();
+		await refreshStarted.promise;
+		cancel.abort();
+
+		await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+	});
+
 	it("keeps upstream error details out of client-facing errors", async () => {
 		const detail = "Internal request details that must stay private";
 		const { impl } = stubFetch([json({ message: detail }, 422)]);

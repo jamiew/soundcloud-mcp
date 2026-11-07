@@ -57,8 +57,22 @@ function retryAfterSeconds(header: string | null, now = Date.now()): number | un
 	return Math.max(0, Math.ceil((date - now) / 1000));
 }
 
-/** Upper bound for one API call, including a retry after a token refresh. */
+/** Upper bound for one API call, including token lookups and a retry after a refresh. */
 export const REQUEST_TIMEOUT_MS = 20_000;
+
+/**
+ * Waits for `work` until `signal` aborts. Only the wait stops: the work keeps
+ * running, so a shared refresh still saves its single-use replacement token.
+ */
+function abortable<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+	if (signal.aborted) return Promise.reject(signal.reason);
+	let onAbort = () => {};
+	const aborted = new Promise<never>((_, reject) => {
+		onAbort = () => reject(signal.reason);
+		signal.addEventListener("abort", onAbort, { once: true });
+	});
+	return Promise.race([work, aborted]).finally(() => signal.removeEventListener("abort", onAbort));
+}
 
 export interface TokenProvider {
 	getAccessToken(): Promise<string>;
@@ -129,7 +143,7 @@ export class SoundCloudClient {
 	}
 
 	private async attempt(url: string, spec: RequestSpec, signal: AbortSignal): Promise<unknown> {
-		let token = await this.tokens.getAccessToken();
+		let token = await abortable(this.tokens.getAccessToken(), signal);
 		let refreshed = false;
 
 		for (;;) {
@@ -138,7 +152,7 @@ export class SoundCloudClient {
 			if (response.status === 401) {
 				if (refreshed) throw new SoundCloudAuthError();
 				refreshed = true;
-				token = await this.tokens.refreshAccessToken();
+				token = await abortable(this.tokens.refreshAccessToken(), signal);
 				continue;
 			}
 			if (response.status === 429) {
