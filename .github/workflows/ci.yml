@@ -25,7 +25,7 @@ jobs:
       # Check Node and Workers with separate global types.
       - run: pnpm typecheck
       - run: pnpm test
-      # Bundle for workerd; unit tests use stubbed fetch.
+      # Bundle exactly as a deploy would.
       - run: pnpm exec wrangler deploy --dry-run --outdir /tmp/worker-bundle
 
   deploy:

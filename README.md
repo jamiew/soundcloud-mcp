@@ -194,12 +194,13 @@ Shared API and MCP code lives in `src/{client,tools,types,server,icon}.ts`.
 `src/index.ts` and `src/stdio/` handle local auth and transport;
 `src/worker.ts` and `src/worker/` handle Workers OAuth and HTTP.
 
-- `pnpm check`: lint, Markdown lint, both typechecks, and unit tests.
+- `pnpm check`: lint, Markdown lint, both typechecks, and tests. Tests run on
+  Node, plus a few in workerd against the bundled Worker.
 - `pnpm verify`: build and check the live stdio server, including read tools,
   resources, and a temporary playlist create/like/read/delete cycle. Requires
   login and writes to the connected account.
 - `pnpm exec wrangler deploy --dry-run`: bundle the worker without deploying.
-  Unit tests do not verify the deployed Workers runtime.
+  No test verifies a deployment.
 
 See [CLAUDE.md](CLAUDE.md) for safety and verification rules and
 [GitHub issues](https://github.com/jamiew/soundcloud-mcp/issues) for open work.

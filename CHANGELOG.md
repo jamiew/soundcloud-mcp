@@ -20,6 +20,8 @@
   redirect URIs, and drops the Cancel button and the client's policy, terms and
   contact lines. CSRF checks, state binding and the signed approved-clients
   cookie work as before and now have tests.
+- `pnpm test` also runs the bundled Worker in workerd and checks the install
+  page, the `/mcp` token gate and the approval dialog.
 - The server version comes from `package.json`, so it can no longer drift.
 
 ## 2026-11-07 — 1.1.0

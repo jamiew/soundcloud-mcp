@@ -75,8 +75,10 @@ use them through the server, not by inspecting credentials.
 - For extra checks, drive the built server through an MCP client rather than
   curling the API. Put scratch scripts in gitignored `tmp/`.
 - Run `pnpm exec wrangler deploy --dry-run` to check worker bundling without
-  deploying. Node tests with stubbed `fetch` do not verify workerd or deployment.
-  If the deployed worker is connected as an MCP server, call its tools directly.
+  deploying. Most tests run on Node with stubbed `fetch`. `*.workerd.test.ts`
+  files run the bundled Worker in workerd through `vitest.workerd.config.ts`,
+  up to the OAuth gate; nothing verifies a deployment. If the deployed worker
+  is connected as an MCP server, call its tools directly.
 - Pushes to `main` deploy when CI deployment is enabled. Match
   `pnpm exec wrangler deployments list` version IDs against CI logs before
   claiming a change is live. Reconnect clients to refresh cached `tools/list`.
