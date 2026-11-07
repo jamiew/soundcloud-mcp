@@ -16,6 +16,10 @@
 - API responses are now checked against the fields the server reads, instead
   of being trusted as typed. A response with a wrongly typed field returns a
   short error.
+- The hosted approval page is plainer. It shows the client's name, website and
+  redirect URIs, and drops the Cancel button and the client's policy, terms and
+  contact lines. CSRF checks, state binding and the signed approved-clients
+  cookie work as before and now have tests.
 - The server version comes from `package.json`, so it can no longer drift.
 
 ## 2026-11-07 — 1.1.0
