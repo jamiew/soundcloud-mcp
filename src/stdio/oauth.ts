@@ -2,21 +2,29 @@ import { spawn } from "node:child_process";
 import crypto from "node:crypto";
 import http from "node:http";
 import { URL } from "node:url";
-import type { SoundCloudClient, TokenProvider } from "../client.js";
-import type { OAuthToken, PKCEChallenge } from "../types.js";
-import { API_BASE, AUTH_BASE, CLIENT_ID, CLIENT_SECRET, REDIRECT_URI } from "./config.js";
+import {
+	AUTH_BASE,
+	SoundCloudAuthError,
+	type SoundCloudClient,
+	type TokenProvider,
+} from "../client.js";
+import type { OAuthTokenResponse } from "../types.js";
+import { CLIENT_ID, CLIENT_SECRET, REDIRECT_URI } from "./config.js";
 import { debug, logError } from "./log.js";
 import { clearTokens, isExpired, loadTokens, type StoredToken, saveTokens } from "./tokenStore.js";
 
-export class OAuthError extends Error {}
+/** Tools return this message as is, so keep it short and actionable. */
+export class OAuthError extends SoundCloudAuthError {}
 
-function base64url(buf: Buffer): string {
-	return buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+interface PKCEChallenge {
+	codeVerifier: string;
+	codeChallenge: string;
+	state: string;
 }
 
 export function generatePKCEChallenge(): PKCEChallenge {
-	const codeVerifier = base64url(crypto.randomBytes(32));
-	const codeChallenge = base64url(crypto.createHash("sha256").update(codeVerifier).digest());
+	const codeVerifier = crypto.randomBytes(32).toString("base64url");
+	const codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url");
 	const state = crypto.randomBytes(16).toString("hex");
 	return { codeVerifier, codeChallenge, state };
 }
@@ -36,7 +44,7 @@ export function getAuthorizationUrl(pkce: PKCEChallenge): string {
 async function tokenRequest(
 	body: URLSearchParams,
 	extraHeaders: Record<string, string> = {}
-): Promise<OAuthToken> {
+): Promise<OAuthTokenResponse> {
 	const response = await fetch(`${AUTH_BASE}/oauth/token`, {
 		method: "POST",
 		headers: {
@@ -49,10 +57,10 @@ async function tokenRequest(
 	if (!response.ok) {
 		throw new OAuthError("SoundCloud token request failed. Check app credentials or reconnect.");
 	}
-	return response.json() as Promise<OAuthToken>;
+	return response.json() as Promise<OAuthTokenResponse>;
 }
 
-export async function exchangeCode(code: string, codeVerifier: string): Promise<StoredToken> {
+async function exchangeCode(code: string, codeVerifier: string): Promise<StoredToken> {
 	const token = await tokenRequest(
 		new URLSearchParams({
 			grant_type: "authorization_code",
@@ -66,7 +74,7 @@ export async function exchangeCode(code: string, codeVerifier: string): Promise<
 	return saveTokens(token);
 }
 
-export async function getClientCredentialsToken(): Promise<OAuthToken> {
+export async function getClientCredentialsToken(): Promise<OAuthTokenResponse> {
 	const credentials = Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString("base64");
 	return tokenRequest(new URLSearchParams({ grant_type: "client_credentials" }), {
 		Authorization: `Basic ${credentials}`,
@@ -95,7 +103,7 @@ function refreshToken(refresh_token: string): Promise<StoredToken> {
 	return refreshing;
 }
 
-export type SignOutResult = "revoked" | "forgotten" | "not-logged-in";
+type SignOutResult = "revoked" | "forgotten" | "not-logged-in";
 
 /**
  * Revokes the app at SoundCloud, then deletes the token file even if SoundCloud
@@ -132,7 +140,9 @@ export async function getValidAccessToken(): Promise<string> {
 		return tokens.access_token;
 	}
 	if (!tokens.refresh_token) {
-		throw new OAuthError("Token expired and cannot be refreshed. Run `pnpm run auth`.");
+		throw new OAuthError(
+			"Token expired and cannot be refreshed. Use connect_soundcloud or run `pnpm run auth`."
+		);
 	}
 	debug("Access token expired; refreshing");
 	const refreshed = await refreshToken(tokens.refresh_token);
@@ -148,7 +158,7 @@ export function hasUserToken(): boolean {
 let cachedClientToken: { access_token: string; obtained_at: number; expires_in: number } | null =
 	null;
 
-export async function getCachedClientCredentialsToken(): Promise<string> {
+async function getCachedClientCredentialsToken(): Promise<string> {
 	const now = Date.now() / 1000;
 	if (
 		cachedClientToken &&
@@ -165,17 +175,14 @@ export async function getCachedClientCredentialsToken(): Promise<string> {
 	return cachedClientToken.access_token;
 }
 
-// Unified token provider for the API client: a logged-in user token when
-// available (library + writes), otherwise client-credentials for public calls.
-export async function getApiToken(): Promise<string> {
-	if (hasUserToken()) return getValidAccessToken();
-	return getCachedClientCredentialsToken();
-}
-
-// Adapts the local token file to the shared client's TokenProvider, whose
-// `refreshAccessToken` is called after an unexpected 401 to force a new token.
+/**
+ * The API client's tokens: the logged-in user's when there is one (library and
+ * writes), otherwise cached client credentials for public calls.
+ * `refreshAccessToken` runs after an unexpected 401 to force a new token.
+ */
 export const tokenProvider: TokenProvider = {
-	getAccessToken: getApiToken,
+	getAccessToken: () =>
+		hasUserToken() ? getValidAccessToken() : getCachedClientCredentialsToken(),
 	async refreshAccessToken() {
 		const tokens = loadTokens();
 		if (tokens?.refresh_token) {
@@ -201,16 +208,12 @@ function openBrowser(url: string): void {
 	}
 }
 
-export interface LoginResult {
-	token: StoredToken;
-}
-
 // Runs the full Authorization Code + PKCE flow: spins up a one-shot local
 // server on the redirect URI's port, opens the browser, captures the callback
 // code automatically, exchanges it for tokens, and persists them.
 export function loginWithBrowser(
 	options: { openBrowser?: boolean; timeoutMs?: number } = {}
-): Promise<LoginResult> {
+): Promise<StoredToken> {
 	const { openBrowser: shouldOpen = true, timeoutMs = 300_000 } = options;
 
 	if (!CLIENT_ID || !CLIENT_SECRET) {
@@ -224,7 +227,7 @@ export function loginWithBrowser(
 	const redirect = new URL(REDIRECT_URI);
 	const port = parseInt(redirect.port, 10) || (redirect.protocol === "https:" ? 443 : 80);
 
-	return new Promise<LoginResult>((resolve, reject) => {
+	return new Promise<StoredToken>((resolve, reject) => {
 		let settled = false;
 		const finish = (fn: () => void) => {
 			if (settled) return;
@@ -265,7 +268,7 @@ export function loginWithBrowser(
 				try {
 					const token = await exchangeCode(code, pkce.codeVerifier);
 					send(200, "SoundCloud connected!");
-					finish(() => resolve({ token }));
+					finish(() => resolve(token));
 				} catch (err) {
 					send(500, "Token exchange failed");
 					finish(() => reject(err instanceof Error ? err : new OAuthError(String(err))));
@@ -287,5 +290,3 @@ export function loginWithBrowser(
 		});
 	});
 }
-
-export { API_BASE };

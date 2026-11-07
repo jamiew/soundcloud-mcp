@@ -1,11 +1,6 @@
 import os from "node:os";
 import path from "node:path";
 
-// SoundCloud uses two hosts: secure.* for the OAuth token endpoints,
-// api.* for everything else.
-export const API_BASE = "https://api.soundcloud.com";
-export const AUTH_BASE = "https://secure.soundcloud.com";
-
 export const CLIENT_ID = (process.env.SOUNDCLOUD_CLIENT_ID ?? "").trim();
 export const CLIENT_SECRET = (process.env.SOUNDCLOUD_CLIENT_SECRET ?? "").trim();
 export const REDIRECT_URI = (

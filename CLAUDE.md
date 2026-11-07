@@ -89,9 +89,10 @@ use them through the server, not by inspecting credentials.
 ## Conventions
 
 - Use Biome and tabs, as configured in `biome.json`.
-- Give tools a `title` and behavior annotations. Return `structuredContent`
-  alongside text where applicable, and `resource_link` blocks for permalinks,
-  artwork, and audio.
+- Give tools a `title` and behavior annotations. Tools that aren't read-only
+  must set `destructiveHint` explicitly; `src/tools.test.ts` enforces it.
+  Return `structuredContent` alongside text where applicable, and
+  `resource_link` blocks for permalinks, artwork, and audio.
 - Register tools that change the user's account in `registerWriteTools`. The
   hosted server offers them only when `ENABLE_WRITE_TOOLS` is `true`. Keep
   `src/worker/privacy.ts` accurate when changing what the worker stores.
@@ -102,3 +103,5 @@ use them through the server, not by inspecting credentials.
   that can return strings or bare arrays, including `next_page`; otherwise the
   SDK can reject missing `structuredContent`.
 - Return one short, actionable error sentence to the model, never a raw API body.
+  Wrap every tool handler, auth tools included, in `run` from `src/tools.ts`.
+  Resources and prompts throw the same mapped message.

@@ -4,13 +4,7 @@
 // revokes the app's access and deletes the stored token instead.
 import { SoundCloudClient } from "../client.js";
 import { CLIENT_ID, CLIENT_SECRET, TOKEN_FILE } from "./config.js";
-import {
-	loginWithBrowser,
-	OAuthError,
-	SIGN_OUT_MESSAGES,
-	signOut,
-	tokenProvider,
-} from "./oauth.js";
+import { loginWithBrowser, SIGN_OUT_MESSAGES, signOut, tokenProvider } from "./oauth.js";
 
 async function main() {
 	if (!CLIENT_ID || !CLIENT_SECRET) {
@@ -25,7 +19,7 @@ async function main() {
 	}
 
 	const noBrowser = process.argv.includes("--no-browser");
-	const { token } = await loginWithBrowser({ openBrowser: !noBrowser });
+	const token = await loginWithBrowser({ openBrowser: !noBrowser });
 
 	const me = await client.getMe();
 
@@ -35,8 +29,6 @@ async function main() {
 }
 
 main().catch((error) => {
-	const message =
-		error instanceof OAuthError || error instanceof Error ? error.message : String(error);
-	console.error(`\nLogin failed: ${message}`);
+	console.error(`\nLogin failed: ${error instanceof Error ? error.message : String(error)}`);
 	process.exit(1);
 });

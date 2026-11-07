@@ -22,7 +22,7 @@ const sc = new SoundCloudClient(tokenProvider);
 // serveStdio picks the protocol era from the client's first message.
 serveStdio(
 	() => {
-		const server = new McpServer(serverInfo("soundcloud", "1.0.0"), {
+		const server = new McpServer(serverInfo("soundcloud"), {
 			instructions: instructions(
 				"- Public search needs no login. Use `connect_soundcloud` for personal data and writes."
 			),

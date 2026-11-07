@@ -3,11 +3,8 @@
 // a new one that must replace the old.
 
 import { z } from "zod";
+import { AUTH_BASE } from "../client.js";
 import type { OAuthTokenResponse } from "../types.js";
-
-// Token + authorize endpoints live on secure.soundcloud.com. SoundCloud's own
-// agent guidance explicitly warns off the legacy api.soundcloud.com/oauth2/token.
-export const AUTH_BASE = "https://secure.soundcloud.com";
 
 /**
  * Context captured at authorization time, encrypted into the OAuth grant and
@@ -32,7 +29,7 @@ export interface Tokens {
 	expiresAt: number;
 }
 
-export interface Pkce {
+interface Pkce {
 	codeVerifier: string;
 	codeChallenge: string;
 }

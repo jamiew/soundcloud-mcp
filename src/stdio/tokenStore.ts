@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { OAuthToken } from "../types.js";
+import type { OAuthTokenResponse } from "../types.js";
 import { TOKEN_FILE } from "./config.js";
 import { debug } from "./log.js";
 
 // Persisted token shape: the raw OAuth response plus when we obtained it,
 // so we can tell whether the access token is still valid.
-export interface StoredToken extends OAuthToken {
+export interface StoredToken extends OAuthTokenResponse {
 	obtained_at: number; // unix seconds
 }
 
@@ -20,7 +20,7 @@ export function loadTokens(): StoredToken | null {
 	}
 }
 
-export function saveTokens(token: OAuthToken): StoredToken {
+export function saveTokens(token: OAuthTokenResponse): StoredToken {
 	const stored: StoredToken = { ...token, obtained_at: Math.floor(Date.now() / 1000) };
 	fs.mkdirSync(path.dirname(TOKEN_FILE), { recursive: true });
 	fs.writeFileSync(TOKEN_FILE, JSON.stringify(stored, null, 2), { mode: 0o600 });
@@ -36,8 +36,8 @@ export function clearTokens(): void {
 	}
 }
 
-// Refresh a bit early; SoundCloud refresh tokens are single-use.
-export function isExpired(token: StoredToken, skewSeconds = 300): boolean {
+// Refresh five minutes early; SoundCloud refresh tokens are single-use.
+export function isExpired(token: StoredToken): boolean {
 	const expiresAt = token.obtained_at + (token.expires_in ?? 3600);
-	return Date.now() / 1000 >= expiresAt - skewSeconds;
+	return Date.now() / 1000 >= expiresAt - 300;
 }

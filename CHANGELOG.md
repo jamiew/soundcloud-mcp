@@ -7,6 +7,22 @@
   clients, which keep working unchanged. The v1 `@modelcontextprotocol/sdk` is
   no longer a dependency.
 - Dependencies refreshed within their majors (`hono`, `wrangler`, `vitest` 5.1, `biome`, `workers-types`). A pnpm override lifts `katex` to 0.18.2 for GHSA-238p-pmpm-9mq7, a low-severity dev-only path through `markdownlint-cli2`.
+- Likes, follows, reposts, comments, new playlists and `connect_soundcloud` no
+  longer look destructive to clients. They now set `destructiveHint: false`, so
+  clients that confirm destructive calls stop asking for them.
+- Both servers report the `package.json` version. The hosted one said `0.1.0`.
+- Tool results put compact JSON in their text block instead of pretty-printed
+  JSON. The data is the same, and it costs fewer tokens. Resources and prompts
+  also use compact JSON.
+- Resources, prompts, `auth_status` and both `sign_out` tools now return the
+  same short error messages as other tools instead of raw exception text. A
+  missing track, user or playlist resource returns a not-found error.
+- When the local server's login expires and cannot refresh, tools now say to
+  use `connect_soundcloud`, and failed token requests show their own message,
+  instead of a generic failure.
+- Dropped the `nanoid`, `source-map-js` and `vite` pnpm overrides. `postcss`
+  now requires the fixed `nanoid` and `source-map-js`, and the lockfile already
+  resolves Vite 8.3.5.
 
 ## 2026-11-01
 

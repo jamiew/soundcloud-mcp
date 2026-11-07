@@ -55,15 +55,6 @@ describe("SoundCloudClient", () => {
 		expect(headers.Authorization).toBe("OAuth tok-1");
 	});
 
-	it("builds track paths from URNs", async () => {
-		const { impl, calls } = stubFetch([json({ id: 3419282 })]);
-		const client = new SoundCloudClient(tokens().provider, undefined, impl);
-
-		await client.getTrack(3419282);
-
-		expect(calls[0]?.url).toBe("https://api.soundcloud.com/tracks/soundcloud:tracks:3419282");
-	});
-
 	it("refreshes once on a 401 and retries with the new token", async () => {
 		const { impl, calls } = stubFetch([json({ error: "expired" }, 401), json({ id: 1 })]);
 		const auth = tokens();

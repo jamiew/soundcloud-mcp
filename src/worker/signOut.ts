@@ -1,6 +1,7 @@
 import type { OAuthHelpers } from "@cloudflare/workers-oauth-provider";
 import type { McpServer } from "@modelcontextprotocol/server";
 import type { SoundCloudClient } from "../client.js";
+import { run } from "../tools.js";
 
 type Grants = Pick<OAuthHelpers, "listUserGrants" | "revokeGrant">;
 
@@ -61,8 +62,6 @@ export function registerSignOut(
 				openWorldHint: true,
 			},
 		},
-		async () => ({
-			content: [{ type: "text" as const, text: await signOut(sc, grants, userId) }],
-		})
+		async () => run(() => signOut(sc, grants, userId))
 	);
 }

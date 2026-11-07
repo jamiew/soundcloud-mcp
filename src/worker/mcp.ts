@@ -19,7 +19,7 @@ function createServer(
 	ctx: ExecutionContext,
 	props: Props | undefined
 ): McpServer {
-	const server = new McpServer(serverInfo("soundcloud-mcp", "0.1.0", [HOSTED_ICON]), {
+	const server = new McpServer(serverInfo("soundcloud-mcp", [HOSTED_ICON]), {
 		instructions: instructions(
 			"- The connected account is already authorized; there is no login step."
 		),

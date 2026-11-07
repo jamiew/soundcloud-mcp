@@ -31,8 +31,7 @@ console.log(`${tools.length} tools registered\n`);
 const callWith = async (target, name, args = {}) => {
 	const r = await target.callTool({ name, arguments: args });
 	const text = r.content?.[0]?.text ?? "";
-	const isErr = r.isError || text.startsWith("Error:");
-	return { ok: !isErr, text, structured: r.structuredContent };
+	return { ok: !r.isError, text, structured: r.structuredContent };
 };
 const call = (name, args) => callWith(client, name, args);
 
