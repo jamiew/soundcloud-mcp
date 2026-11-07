@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2026-11-07 — 1.1.1
 
 - Each SoundCloud API call now gives up after 20 seconds with a short "did not
   answer in time" error instead of hanging. Cancelling a tool call, resource
