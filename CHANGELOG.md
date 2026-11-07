@@ -11,6 +11,18 @@
   longer look destructive to clients. They now set `destructiveHint: false`, so
   clients that confirm destructive calls stop asking for them.
 - Both servers report the `package.json` version. The hosted one said `0.1.0`.
+- Tool results put compact JSON in their text block instead of pretty-printed
+  JSON. The data is the same, and it costs fewer tokens. Resources and prompts
+  also use compact JSON.
+- Resources, prompts, `auth_status` and both `sign_out` tools now return the
+  same short error messages as other tools instead of raw exception text. A
+  missing track, user or playlist resource returns a not-found error.
+- When the local server's login expires and cannot refresh, tools now say to
+  use `connect_soundcloud`, and failed token requests show their own message,
+  instead of a generic failure.
+- Dropped the `nanoid`, `source-map-js` and `vite` pnpm overrides. `postcss`
+  now requires the fixed `nanoid` and `source-map-js`, and the lockfile already
+  resolves Vite 8.3.5.
 
 ## 2026-11-01
 

@@ -27,7 +27,7 @@
 		"api"
 	],
 	"author": "",
-	"license": "ISC",
+	"license": "MIT",
 	"packageManager": "pnpm@11.21.0",
 	"engines": {
 		"node": "^22.18.0 || >=24.11.0"

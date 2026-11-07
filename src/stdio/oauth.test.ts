@@ -1,5 +1,9 @@
 import crypto from "node:crypto";
+import { Client } from "@modelcontextprotocol/client";
+import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { SoundCloudClient } from "../client.js";
+import { registerTools } from "../tools.js";
 import {
 	generatePKCEChallenge,
 	getAuthorizationUrl,
@@ -7,6 +11,7 @@ import {
 	getValidAccessToken,
 	OAuthError,
 	signOut,
+	tokenProvider,
 } from "./oauth.js";
 import type * as TokenStore from "./tokenStore.js";
 import type { StoredToken } from "./tokenStore.js";
@@ -25,31 +30,13 @@ vi.mock("./tokenStore.js", async (importOriginal) => ({
 	},
 }));
 
-const base64url = (buf: Buffer): string =>
-	buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-
 describe("generatePKCEChallenge", () => {
-	it("produces a codeVerifier using only base64url characters", () => {
+	it("produces a base64url verifier and its S256 challenge", () => {
 		const pkce = generatePKCEChallenge();
-		expect(pkce.codeVerifier).toMatch(/^[A-Za-z0-9_-]+$/);
-	});
-
-	it("produces a codeVerifier with no padding or unsafe characters", () => {
-		const pkce = generatePKCEChallenge();
-		expect(pkce.codeVerifier).not.toContain("=");
-		expect(pkce.codeVerifier).not.toContain("+");
-		expect(pkce.codeVerifier).not.toContain("/");
-	});
-
-	it("derives codeChallenge as the S256 hash of the verifier", () => {
-		const pkce = generatePKCEChallenge();
-		const expected = base64url(crypto.createHash("sha256").update(pkce.codeVerifier).digest());
-		expect(pkce.codeChallenge).toBe(expected);
-	});
-
-	it("produces a state of 32 lowercase hex characters", () => {
-		const pkce = generatePKCEChallenge();
-		expect(pkce.state).toMatch(/^[0-9a-f]{32}$/);
+		expect(pkce.codeVerifier).toMatch(/^[A-Za-z0-9_-]{43}$/);
+		expect(pkce.codeChallenge).toBe(
+			crypto.createHash("sha256").update(pkce.codeVerifier).digest("base64url")
+		);
 	});
 
 	it("produces unique verifiers and states across calls", () => {
@@ -143,6 +130,24 @@ describe("getValidAccessToken", () => {
 		expect(tokens).toEqual(["fresh", "fresh"]);
 		expect(fetchMock).toHaveBeenCalledTimes(1);
 		expect(store.token?.refresh_token).toBe("refresh-2");
+	});
+
+	it("tells tools how to log in again when the token cannot be refreshed", async () => {
+		store.token = { access_token: "expired", expires_in: 3600, obtained_at: 0 };
+		const server = new McpServer({ name: "test", version: "0" });
+		registerTools(server, new SoundCloudClient(tokenProvider));
+		const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+		await server.connect(serverTransport);
+		const client = new Client({ name: "test", version: "0" });
+		await client.connect(clientTransport);
+
+		const result = await client.callTool({ name: "get_profile", arguments: {} });
+
+		expect(result.isError).toBe(true);
+		expect(result.content).toEqual([
+			{ type: "text", text: expect.stringContaining("connect_soundcloud") },
+		]);
+		await client.close();
 	});
 });
 

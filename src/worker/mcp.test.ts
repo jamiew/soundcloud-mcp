@@ -1,5 +1,6 @@
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { landingPage } from "./landing.js";
 import { type McpEnv, mcpHandler } from "./mcp.js";
 
 const props = {
@@ -86,23 +87,25 @@ describe.each(eras)("worker /mcp ($era era)", ({ era, options }) => {
 
 		expect(result.isError).toBeFalsy();
 		expect(result.structuredContent).toMatchObject({ username: "Test User" });
+		// Clients that read only text get the same data.
+		const [text] = result.content;
+		expect(text?.type === "text" && JSON.parse(text.text)).toEqual(result.structuredContent);
 		const headers = new Headers(upstream.mock.calls[0]?.[1]?.headers);
 		expect(headers.get("Authorization")).toBe("OAuth grant-token");
 		await client.close();
 	});
 
-	it("offers write tools only when the deployment enables them", async () => {
-		const names = async (vars: { ENABLE_WRITE_TOOLS?: string }) => {
-			const client = await connect(workerEnv(vars).env, workerCtx(props).ctx, options);
-			const { tools } = await client.listTools();
-			await client.close();
-			return tools.map((tool) => tool.name);
-		};
+	// The landing page list is hand-written. This keeps it in step with what a
+	// deployment serves, including that write tools stay off unless enabled.
+	it.each([false, true])("serves exactly the landing page's tools (writes: %s)", async (writes) => {
+		const vars = writes ? { ENABLE_WRITE_TOOLS: "true" } : {};
+		const client = await connect(workerEnv(vars).env, workerCtx(props).ctx, options);
+		const { tools } = await client.listTools();
+		await client.close();
 
-		const readOnly = await names({});
-		expect(readOnly).toContain("sign_out");
-		expect(readOnly).not.toContain("create_playlist");
-		expect(await names({ ENABLE_WRITE_TOOLS: "true" })).toContain("create_playlist");
+		const page = landingPage("https://x.dev", writes);
+		const listed = [...page.matchAll(/<li><code>(\w+)<\/code><\/li>/g)].map((m) => m[1]);
+		expect(tools.map((tool) => tool.name).sort()).toEqual(listed.sort());
 	});
 
 	it("offers no tools without grant props", async () => {

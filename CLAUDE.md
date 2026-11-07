@@ -103,3 +103,5 @@ use them through the server, not by inspecting credentials.
   that can return strings or bare arrays, including `next_page`; otherwise the
   SDK can reject missing `structuredContent`.
 - Return one short, actionable error sentence to the model, never a raw API body.
+  Wrap every tool handler, auth tools included, in `run` from `src/tools.ts`.
+  Resources and prompts throw the same mapped message.

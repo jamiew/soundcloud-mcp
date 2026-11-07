@@ -13,6 +13,8 @@ import type {
 } from "./types.js";
 
 export const API_BASE = "https://api.soundcloud.com";
+/** OAuth `/authorize` and `/oauth/token` live here, not on the API host. */
+export const AUTH_BASE = "https://secure.soundcloud.com";
 
 export class SoundCloudApiError extends Error {
 	constructor(
@@ -24,10 +26,12 @@ export class SoundCloudApiError extends Error {
 	}
 }
 
-/** Authorization is gone for good (refresh failed, or a second 401). */
+/** Authorization is gone for good, e.g. a refresh failed or a second 401. */
 export class SoundCloudAuthError extends Error {
-	constructor() {
-		super("SoundCloud authorization has lapsed. Reconnect this MCP server to SoundCloud.");
+	constructor(
+		message = "SoundCloud authorization has lapsed. Reconnect this MCP server to SoundCloud."
+	) {
+		super(message);
 		this.name = "SoundCloudAuthError";
 	}
 }

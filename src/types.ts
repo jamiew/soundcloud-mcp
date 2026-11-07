@@ -112,20 +112,3 @@ export interface OAuthTokenResponse {
 	scope?: string;
 	token_type?: string;
 }
-
-// --- stdio-only: the local OAuth flow ---
-
-/** A token as persisted to disk by the stdio server. */
-export interface OAuthToken {
-	access_token: string;
-	refresh_token: string;
-	expires_in: number;
-	scope: string;
-	token_type: string;
-}
-
-export interface PKCEChallenge {
-	codeVerifier: string;
-	codeChallenge: string;
-	state: string;
-}

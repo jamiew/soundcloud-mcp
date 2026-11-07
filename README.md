@@ -1,6 +1,6 @@
 # SoundCloud MCP Server
 
-Search SoundCloud, discover music, manage playlists, and use your library from an
+Search SoundCloud, discover music, manage playlists, and use your library from
 MCP clients like Claude Code and ChatGPT.
 
 Here's an example:
@@ -10,9 +10,10 @@ https://github.com/user-attachments/assets/89625322-d329-46ef-9987-e25396b68c23
 
 This integration is unofficial and not affiliated with SoundCloud.
 
-This package supports both stdio transport (run locally) and streaming HTTP (e.g. run on Cloudflare so can you use on phone)
+It runs locally over stdio, or on Cloudflare Workers over Streamable HTTP so you
+can use it from your phone.
 
-You have to deploy this to Cloudflare yourself. We don't manage a shared instance at this time.
+You have to deploy the worker yourself. We don't run a shared instance at this time.
 
 ## Local setup
 

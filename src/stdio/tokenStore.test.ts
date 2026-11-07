@@ -24,7 +24,7 @@ describe("isExpired", () => {
 		expect(isExpired(token)).toBe(true);
 	});
 
-	it("treats a token expiring within the default skew window as expired", () => {
+	it("treats a token expiring within five minutes as expired", () => {
 		const token: StoredToken = { ...sample, expires_in: 200, obtained_at: nowSec };
 		expect(isExpired(token)).toBe(true);
 	});
@@ -33,11 +33,6 @@ describe("isExpired", () => {
 		const token = { ...sample, obtained_at: nowSec } as StoredToken;
 		delete (token as unknown as Record<string, unknown>).expires_in;
 		expect(isExpired(token)).toBe(false);
-	});
-
-	it("respects a custom skewSeconds", () => {
-		const token: StoredToken = { ...sample, obtained_at: nowSec };
-		expect(isExpired(token, 4000)).toBe(true);
 	});
 });
 

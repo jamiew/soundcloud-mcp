@@ -2,8 +2,8 @@
 
 const REPO_URL = "https://github.com/jamiew/soundcloud-mcp";
 
-// landing.test.ts checks this list against registered tools.
-export const TOOL_GROUPS: [string, string[]][] = [
+// mcp.test.ts checks this list against the tools the worker serves.
+const TOOL_GROUPS: [string, string[]][] = [
 	[
 		"Discovery",
 		[

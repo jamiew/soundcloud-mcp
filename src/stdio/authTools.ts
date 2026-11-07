@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import type { SoundCloudClient } from "../client.js";
+import { run } from "../tools.js";
 import { hasUserToken, loginWithBrowser, SIGN_OUT_MESSAGES, signOut } from "./oauth.js";
 
 // Stdio handles login through tools; the worker uses transport OAuth.
@@ -16,30 +17,12 @@ export function registerAuthTools(server: McpServer, sc: SoundCloudClient): void
 				openWorldHint: true,
 			},
 		},
-		async () => {
-			try {
-				const { token } = await loginWithBrowser();
+		async () =>
+			run(async () => {
+				const token = await loginWithBrowser();
 				const me = await sc.getMe();
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: `Connected as ${me.username} (id ${me.id}). Token expires in ${token.expires_in}s and refreshes automatically.`,
-						},
-					],
-				};
-			} catch {
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: "SoundCloud login failed. Try connect_soundcloud again.",
-						},
-					],
-					isError: true,
-				};
-			}
-		}
+				return `Connected as ${me.username} (id ${me.id}). Token expires in ${token.expires_in}s and refreshes automatically.`;
+			})
 	);
 
 	server.registerTool(
@@ -49,22 +32,14 @@ export function registerAuthTools(server: McpServer, sc: SoundCloudClient): void
 			description: "Check whether a SoundCloud user is logged in.",
 			annotations: { title: "Auth status", readOnlyHint: true, openWorldHint: true },
 		},
-		async () => {
-			if (!hasUserToken()) {
-				return {
-					content: [
-						{
-							type: "text" as const,
-							text: "Not logged in. Use connect_soundcloud (public search still works).",
-						},
-					],
-				};
-			}
-			const me = await sc.getMe();
-			return {
-				content: [{ type: "text" as const, text: `Logged in as ${me.username} (id ${me.id}).` }],
-			};
-		}
+		async () =>
+			run(async () => {
+				if (!hasUserToken()) {
+					return "Not logged in. Use connect_soundcloud (public search still works).";
+				}
+				const me = await sc.getMe();
+				return `Logged in as ${me.username} (id ${me.id}).`;
+			})
 	);
 
 	server.registerTool(
@@ -81,8 +56,6 @@ export function registerAuthTools(server: McpServer, sc: SoundCloudClient): void
 				openWorldHint: true,
 			},
 		},
-		async () => ({
-			content: [{ type: "text" as const, text: SIGN_OUT_MESSAGES[await signOut(sc)] }],
-		})
+		async () => run(async () => SIGN_OUT_MESSAGES[await signOut(sc)])
 	);
 }

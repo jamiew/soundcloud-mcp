@@ -1,4 +1,8 @@
-import { type McpServer, ResourceTemplate } from "@modelcontextprotocol/server";
+import {
+	type McpServer,
+	ResourceNotFoundError,
+	ResourceTemplate,
+} from "@modelcontextprotocol/server";
 import { z } from "zod";
 import {
 	RateLimitedError,
@@ -49,8 +53,10 @@ const trackSort = z.enum(["asc", "desc"]).optional();
 const libraryKind = z.enum(["tracks", "playlists"]).default("tracks");
 const likeKind = z.enum(["tracks", "playlists", "stations"]).default("tracks");
 
+// The text block mirrors structuredContent for clients that read only text.
+// Compact JSON keeps it cheap in model context.
 function ok(data: unknown, extra: ContentBlock[] = []): ToolResult {
-	const text = typeof data === "string" ? data : JSON.stringify(data, null, 2);
+	const text = typeof data === "string" ? data : JSON.stringify(data);
 	const result: ToolResult = { content: [{ type: "text", text }, ...extra] };
 	if (data && typeof data === "object") {
 		result.structuredContent = Array.isArray(data)
@@ -60,34 +66,26 @@ function ok(data: unknown, extra: ContentBlock[] = []): ToolResult {
 	return result;
 }
 
-function toolError(message: string): ToolResult {
-	return { content: [{ type: "text", text: message }], isError: true };
-}
-
 // Keep API errors short and actionable.
-function mapError(error: unknown): ToolResult {
+function errorMessage(error: unknown): string {
 	if (error instanceof SoundCloudAuthError || error instanceof RateLimitedError) {
-		return toolError(error.message);
+		return error.message;
 	}
 	if (error instanceof SoundCloudApiError) {
-		if (error.status === 404) {
-			return toolError("Resource not found on SoundCloud. Check the id or URN.");
-		}
+		if (error.status === 404) return "Resource not found on SoundCloud. Check the id or URN.";
 		if (error.status === 403) {
-			return toolError(
-				"SoundCloud refused this action. The track or playlist may be private, or the creator disabled it."
-			);
+			return "SoundCloud refused this action. The track or playlist may be private, or the creator disabled it.";
 		}
 		if (error.status === 405) {
-			return toolError("SoundCloud no longer offers this endpoint to third-party apps.");
+			return "SoundCloud no longer offers this endpoint to third-party apps.";
 		}
-		return toolError(error.message);
+		return error.message;
 	}
-	return toolError("SoundCloud request failed. Try again or reconnect.");
+	return "SoundCloud request failed. Try again or reconnect.";
 }
 
-/** Runs a handler, turning results into MCP content and errors into clean text. */
-async function run<T>(
+/** Runs a tool handler, turning results into MCP content and errors into clean text. */
+export async function run<T>(
 	fn: () => Promise<T>,
 	extra?: (data: T) => ContentBlock[]
 ): Promise<ToolResult> {
@@ -95,7 +93,17 @@ async function run<T>(
 		const data = await fn();
 		return ok(data, extra?.(data) ?? []);
 	} catch (error) {
-		return mapError(error);
+		return { content: [{ type: "text", text: errorMessage(error) }], isError: true };
+	}
+}
+
+// Resources and prompts have no error result. Their failures become protocol
+// errors, which pass the message to the client, so map it first.
+async function orThrow<T>(fn: () => Promise<T>): Promise<T> {
+	try {
+		return await fn();
+	} catch (error) {
+		throw new Error(errorMessage(error));
 	}
 }
 
@@ -872,12 +880,16 @@ function registerWriteTools(server: McpServer, sc: SoundCloudClient): void {
 
 // A JSON resource body. Templates are not listable — there is no endpoint that
 // enumerates every track — so `list` is undefined and clients read them by URI.
-function json(uri: URL, data: unknown) {
-	return {
-		contents: [
-			{ uri: uri.href, mimeType: "application/json", text: JSON.stringify(data, null, 2) },
-		],
-	};
+async function json(uri: URL, load: () => Promise<unknown>) {
+	try {
+		const text = JSON.stringify(await load());
+		return { contents: [{ uri: uri.href, mimeType: "application/json", text }] };
+	} catch (error) {
+		if (error instanceof SoundCloudApiError && error.status === 404) {
+			throw new ResourceNotFoundError(uri.href);
+		}
+		throw new Error(errorMessage(error));
+	}
 }
 
 function registerResources(server: McpServer, sc: SoundCloudClient): void {
@@ -885,21 +897,21 @@ function registerResources(server: McpServer, sc: SoundCloudClient): void {
 		"track",
 		new ResourceTemplate("soundcloud://tracks/{id}", { list: undefined }),
 		{ title: "Track", description: "A track by id or URN", mimeType: "application/json" },
-		async (uri, { id }) => json(uri, await sc.getTrack(String(id)))
+		async (uri, { id }) => json(uri, () => sc.getTrack(String(id)))
 	);
 
 	server.registerResource(
 		"user",
 		new ResourceTemplate("soundcloud://users/{id}", { list: undefined }),
 		{ title: "User", description: "A user profile by id or URN", mimeType: "application/json" },
-		async (uri, { id }) => json(uri, await sc.getUser(String(id)))
+		async (uri, { id }) => json(uri, () => sc.getUser(String(id)))
 	);
 
 	server.registerResource(
 		"playlist",
 		new ResourceTemplate("soundcloud://playlists/{id}", { list: undefined }),
 		{ title: "Playlist", description: "A playlist by id or URN", mimeType: "application/json" },
-		async (uri, { id }) => json(uri, await sc.getPlaylist(String(id)))
+		async (uri, { id }) => json(uri, () => sc.getPlaylist(String(id)))
 	);
 
 	server.registerResource(
@@ -910,7 +922,7 @@ function registerResources(server: McpServer, sc: SoundCloudClient): void {
 			description: "The connected user's profile",
 			mimeType: "application/json",
 		},
-		async (uri) => json(uri, await sc.getMe())
+		async (uri) => json(uri, () => sc.getMe())
 	);
 
 	server.registerResource(
@@ -921,7 +933,7 @@ function registerResources(server: McpServer, sc: SoundCloudClient): void {
 			description: "The connected user's playlists",
 			mimeType: "application/json",
 		},
-		async (uri) => json(uri, await sc.getMyPlaylists(50))
+		async (uri) => json(uri, () => sc.getMyPlaylists(50))
 	);
 
 	server.registerResource(
@@ -932,8 +944,12 @@ function registerResources(server: McpServer, sc: SoundCloudClient): void {
 			description: "The connected user's liked tracks",
 			mimeType: "application/json",
 		},
-		async (uri) => json(uri, await sc.getMyLikes(50))
+		async (uri) => json(uri, () => sc.getMyLikes(50))
 	);
+}
+
+function userPrompt(text: string) {
+	return { messages: [{ role: "user" as const, content: { type: "text" as const, text } }] };
 }
 
 function registerPrompts(server: McpServer, sc: SoundCloudClient): void {
@@ -944,18 +960,10 @@ function registerPrompts(server: McpServer, sc: SoundCloudClient): void {
 			description: "Analyze the connected user's taste from their liked tracks",
 		},
 		async () => {
-			const likes = await sc.getMyLikes(50);
-			return {
-				messages: [
-					{
-						role: "user",
-						content: {
-							type: "text",
-							text: `Analyze my liked tracks:\n\n${JSON.stringify(likes, null, 2)}\n\nIdentify favorite genres, artists, and production styles.`,
-						},
-					},
-				],
-			};
+			const likes = await orThrow(() => sc.getMyLikes(50));
+			return userPrompt(
+				`Analyze my liked tracks:\n\n${JSON.stringify(likes)}\n\nIdentify favorite genres, artists, and production styles.`
+			);
 		}
 	);
 
@@ -967,21 +975,12 @@ function registerPrompts(server: McpServer, sc: SoundCloudClient): void {
 			argsSchema: z.object({ trackId: z.string() }),
 		},
 		async ({ trackId }) => {
-			const [track, related] = await Promise.all([
-				sc.getTrack(trackId),
-				sc.getRelatedTracks(trackId, 20),
-			]);
-			return {
-				messages: [
-					{
-						role: "user",
-						content: {
-							type: "text",
-							text: `A track I like:\n\n${JSON.stringify(track, null, 2)}\n\nRelated tracks:\n\n${JSON.stringify(related, null, 2)}\n\nExplain what they share and recommend three.`,
-						},
-					},
-				],
-			};
+			const [track, related] = await orThrow(() =>
+				Promise.all([sc.getTrack(trackId), sc.getRelatedTracks(trackId, 20)])
+			);
+			return userPrompt(
+				`A track I like:\n\n${JSON.stringify(track)}\n\nRelated tracks:\n\n${JSON.stringify(related)}\n\nExplain what they share and recommend three.`
+			);
 		}
 	);
 
@@ -994,21 +993,17 @@ function registerPrompts(server: McpServer, sc: SoundCloudClient): void {
 		},
 		async ({ genres, mood }) => {
 			const seed = genres?.split(",")[0]?.trim();
-			const [likes, search] = await Promise.all([
-				sc.getMyLikes(20),
-				seed ? sc.searchTracks({ q: seed, limit: 20 }) : Promise.resolve({ collection: [] }),
-			]);
-			return {
-				messages: [
-					{
-						role: "user",
-						content: {
-							type: "text",
-							text: `Recommend new music${genres ? ` in these genres: ${genres}` : ""}${mood ? ` with a ${mood} mood` : ""}.\n\nMy likes:\n${JSON.stringify(likes, null, 2)}\n\nSearch results for "${seed ?? ""}":\n${JSON.stringify(search, null, 2)}\n\nSuggest tracks, artists, or genres and explain why.`,
-						},
-					},
-				],
-			};
+			const [likes, search] = await orThrow(() =>
+				Promise.all([
+					sc.getMyLikes(20),
+					seed ? sc.searchTracks({ q: seed, limit: 20 }) : Promise.resolve(undefined),
+				])
+			);
+			const want = `${genres ? ` in these genres: ${genres}` : ""}${mood ? ` with a ${mood} mood` : ""}`;
+			const results = search ? `\n\nSearch results for "${seed}":\n${JSON.stringify(search)}` : "";
+			return userPrompt(
+				`Recommend new music${want}.\n\nMy likes:\n${JSON.stringify(likes)}${results}\n\nSuggest tracks, artists, or genres and explain why.`
+			);
 		}
 	);
 }
