@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Moved both servers to MCP SDK v2 (`@modelcontextprotocol/server` 2.4) and
+  `agents` 0.33. They now serve the 2026-07-28 protocol alongside 2025-era
+  clients, which keep working unchanged. The v1 `@modelcontextprotocol/sdk` is
+  no longer a dependency.
 - Dependencies refreshed within their majors (`hono`, `wrangler`, `vitest` 5.1, `biome`, `workers-types`). A pnpm override lifts `katex` to 0.18.2 for GHSA-238p-pmpm-9mq7, a low-severity dev-only path through `markdownlint-cli2`.
 
 ## 2026-11-01

@@ -1,4 +1,4 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { describe, expect, it } from "vitest";
 import type { SoundCloudClient } from "../client.js";
 import { registerTools } from "../tools.js";

@@ -1,5 +1,5 @@
 import type { OAuthHelpers } from "@cloudflare/workers-oauth-provider";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import type { SoundCloudClient } from "../client.js";
 
 type Grants = Pick<OAuthHelpers, "listUserGrants" | "revokeGrant">;

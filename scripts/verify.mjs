@@ -1,32 +1,42 @@
 // Live API checks, including a temporary playlist. Run with pnpm verify.
+// The full run negotiates the 2026-07-28 protocol; a short pass then checks
+// that 2025-era clients still work.
 import { fileURLToPath } from "node:url";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { Client } from "@modelcontextprotocol/client";
+import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 
-const transport = new StdioClientTransport({
-	command: "node",
-	args: ["--env-file-if-exists=.env", "build/index.js"],
-	cwd: fileURLToPath(new URL("..", import.meta.url)),
-});
-const client = new Client({ name: "verify", version: "1.0.0" });
-await client.connect(transport);
-
-const { tools } = await client.listTools();
-console.log(`${tools.length} tools registered\n`);
-
-const call = async (name, args = {}) => {
-	const r = await client.callTool({ name, arguments: args });
-	const text = r.content?.[0]?.text ?? "";
-	const isErr = r.isError || text.startsWith("Error:");
-	return { ok: !isErr, text, structured: r.structuredContent };
+const connect = async (options) => {
+	const transport = new StdioClientTransport({
+		command: "node",
+		args: ["--env-file-if-exists=.env", "build/index.js"],
+		cwd: fileURLToPath(new URL("..", import.meta.url)),
+	});
+	const client = new Client({ name: "verify", version: "1.0.0" }, options);
+	await client.connect(transport);
+	return client;
 };
 
-const first = (r) => r.structured?.collection?.[0] ?? r.structured?.items?.[0];
 const results = [];
 const check = (name, ok, note = "") => {
 	results.push({ name, ok, note });
 	console.log(`${ok ? "PASS" : "FAIL"}  ${name}${note ? ` — ${note}` : ""}`);
 };
+
+const client = await connect({ versionNegotiation: { mode: "auto" } });
+check("negotiates 2026-07-28", client.getProtocolEra() === "modern", client.getProtocolEra());
+
+const { tools } = await client.listTools();
+console.log(`${tools.length} tools registered\n`);
+
+const callWith = async (target, name, args = {}) => {
+	const r = await target.callTool({ name, arguments: args });
+	const text = r.content?.[0]?.text ?? "";
+	const isErr = r.isError || text.startsWith("Error:");
+	return { ok: !isErr, text, structured: r.structuredContent };
+};
+const call = (name, args) => callWith(client, name, args);
+
+const first = (r) => r.structured?.collection?.[0] ?? r.structured?.items?.[0];
 
 // Discovery
 const search = await call("search_tracks", { query: "aphex twin", limit: 3 });
@@ -68,7 +78,9 @@ if (track?.urn) {
 	check("get_track_reposters", reposters.ok, first(reposters)?.username);
 }
 
-const playlists = await call("search_playlists", { query: "aphex twin", limit: 1 });
+// SoundCloud filters playlist pages after slicing them, so one-item pages can
+// come back empty (seen 2026-11-06). Ask for a few.
+const playlists = await call("search_playlists", { query: "aphex twin", limit: 5 });
 const playlist = first(playlists);
 check("search_playlists", playlists.ok && !!playlist, playlist?.title);
 if (playlist?.urn) {
@@ -214,7 +226,32 @@ if (track?.id) {
 	const read = await client.readResource({ uri: `soundcloud://tracks/${track.id}` });
 	const title = JSON.parse(read.contents[0].text)?.title;
 	check("read track template", !!title, title);
+
+	const prompt = await client.getPrompt({
+		name: "discover_similar_tracks",
+		arguments: { trackId: String(track.id) },
+	});
+	check("get prompt with arguments", prompt.messages[0]?.content?.text?.includes(track.title));
 }
+
+const { prompts } = await client.listPrompts();
+check("list prompts", prompts.length === 3, prompts.map((p) => p.name).join(", "));
+await client.close();
+
+// 2025-era clients use the initialize handshake and must see the same server.
+const legacy = await connect();
+check("2025-era handshake", legacy.getProtocolEra() === "legacy", legacy.getProtocolEra());
+const legacyTools = (await legacy.listTools()).tools;
+check("2025-era tools", legacyTools.length === tools.length, `${legacyTools.length} tools`);
+const legacySearch = await callWith(legacy, "search_tracks", { query: "aphex twin", limit: 1 });
+check(
+	"2025-era search_tracks",
+	legacySearch.ok && !!first(legacySearch),
+	first(legacySearch)?.title
+);
+check("2025-era metadata", legacy.getServerVersion()?.title === info.title, info.title);
+check("2025-era instructions", (legacy.getInstructions() ?? "").includes("next_page"));
+await legacy.close();
 
 const failed = results.filter((r) => !r.ok);
 console.log(`\n${results.length - failed.length}/${results.length} passed`);
@@ -222,4 +259,3 @@ if (failed.length) {
 	console.log("failed:", failed.map((f) => f.name).join(", "));
 	process.exitCode = 1;
 }
-await client.close();
