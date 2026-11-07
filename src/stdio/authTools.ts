@@ -9,7 +9,12 @@ export function registerAuthTools(server: McpServer, sc: SoundCloudClient): void
 		{
 			title: "Connect SoundCloud",
 			description: "Log in through your browser and save the token for future sessions.",
-			annotations: { title: "Connect SoundCloud", readOnlyHint: false, openWorldHint: true },
+			annotations: {
+				title: "Connect SoundCloud",
+				readOnlyHint: false,
+				destructiveHint: false,
+				openWorldHint: true,
+			},
 		},
 		async () => {
 			try {

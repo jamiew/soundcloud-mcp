@@ -2,10 +2,13 @@
 
 import { INLINE_ICON } from "./icon.js";
 
-export function serverInfo(name: string, version: string, icons = [INLINE_ICON]) {
+// Keep in sync with package.json; a test checks it.
+export const VERSION = "1.0.0";
+
+export function serverInfo(name: string, icons = [INLINE_ICON]) {
 	return {
 		name,
-		version,
+		version: VERSION,
 		title: "SoundCloud",
 		description:
 			"Search SoundCloud, read your library, and manage playlists, follows, likes and reposts.",

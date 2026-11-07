@@ -26,7 +26,7 @@ type ToolResult = {
 
 // Every tool calls the external SoundCloud API.
 const READ = { readOnlyHint: true, openWorldHint: true } as const;
-const WRITE = { readOnlyHint: false, openWorldHint: true } as const;
+const WRITE = { readOnlyHint: false, destructiveHint: false, openWorldHint: true } as const;
 const DESTRUCTIVE = {
 	readOnlyHint: false,
 	destructiveHint: true,

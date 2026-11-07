@@ -89,9 +89,10 @@ use them through the server, not by inspecting credentials.
 ## Conventions
 
 - Use Biome and tabs, as configured in `biome.json`.
-- Give tools a `title` and behavior annotations. Return `structuredContent`
-  alongside text where applicable, and `resource_link` blocks for permalinks,
-  artwork, and audio.
+- Give tools a `title` and behavior annotations. Tools that aren't read-only
+  must set `destructiveHint` explicitly; `src/tools.test.ts` enforces it.
+  Return `structuredContent` alongside text where applicable, and
+  `resource_link` blocks for permalinks, artwork, and audio.
 - Register tools that change the user's account in `registerWriteTools`. The
   hosted server offers them only when `ENABLE_WRITE_TOOLS` is `true`. Keep
   `src/worker/privacy.ts` accurate when changing what the worker stores.

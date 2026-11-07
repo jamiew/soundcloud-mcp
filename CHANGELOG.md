@@ -7,6 +7,10 @@
   clients, which keep working unchanged. The v1 `@modelcontextprotocol/sdk` is
   no longer a dependency.
 - Dependencies refreshed within their majors (`hono`, `wrangler`, `vitest` 5.1, `biome`, `workers-types`). A pnpm override lifts `katex` to 0.18.2 for GHSA-238p-pmpm-9mq7, a low-severity dev-only path through `markdownlint-cli2`.
+- Likes, follows, reposts, comments, new playlists and `connect_soundcloud` no
+  longer look destructive to clients. They now set `destructiveHint: false`, so
+  clients that confirm destructive calls stop asking for them.
+- Both servers report the `package.json` version. The hosted one said `0.1.0`.
 
 ## 2026-11-01
 
