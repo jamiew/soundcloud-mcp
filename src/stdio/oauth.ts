@@ -8,7 +8,7 @@ import {
 	type SoundCloudClient,
 	type TokenProvider,
 } from "../client.js";
-import type { OAuthTokenResponse } from "../types.js";
+import { type OAuthTokenResponse, OAuthTokenResponseSchema } from "../types.js";
 import { CLIENT_ID, CLIENT_SECRET, REDIRECT_URI } from "./config.js";
 import { debug, logError } from "./log.js";
 import { clearTokens, isExpired, loadTokens, type StoredToken, saveTokens } from "./tokenStore.js";
@@ -57,10 +57,11 @@ async function tokenRequest(
 		},
 		body: body.toString(),
 	});
-	if (!response.ok) {
+	const token = response.ok && OAuthTokenResponseSchema.safeParse(await response.json()).data;
+	if (!token) {
 		throw new OAuthError("SoundCloud token request failed. Check app credentials or reconnect.");
 	}
-	return response.json() as Promise<OAuthTokenResponse>;
+	return token;
 }
 
 async function exchangeCode(code: string, codeVerifier: string): Promise<StoredToken> {

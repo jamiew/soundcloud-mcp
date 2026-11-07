@@ -2,7 +2,7 @@ import type { AuthRequest, OAuthHelpers } from "@cloudflare/workers-oauth-provid
 import { Hono } from "hono";
 import { API_BASE } from "../client.js";
 import { ICON_PNG, ICON_SVG } from "../icon.js";
-import type { SoundCloudUser } from "../types.js";
+import { UserSchema } from "../types.js";
 import { landingPage } from "./landing.js";
 import {
 	exchangeCode,
@@ -235,7 +235,7 @@ app.get("/callback", async (c) => {
 	if (!meResp.ok) {
 		return c.text("Could not load your SoundCloud profile. Start the connection again.", 500);
 	}
-	const me = (await meResp.json()) as SoundCloudUser;
+	const me = UserSchema.safeParse(await meResp.json()).data;
 	if (!me?.id) {
 		return c.text("SoundCloud profile response had an unexpected shape", 500);
 	}
@@ -252,7 +252,7 @@ app.get("/callback", async (c) => {
 	const props: Props = {
 		userId: String(me.id),
 		username: me.username ?? String(me.id),
-		permalink: me.permalink,
+		permalink: me.permalink ?? undefined,
 		accessToken: tokens.accessToken,
 		refreshToken: tokens.refreshToken,
 		expiresAt: tokens.expiresAt,

@@ -277,6 +277,23 @@ describe("SoundCloudClient", () => {
 		expect(calls).toHaveLength(1);
 	});
 
+	it("refuses to rewrite a playlist with a track it cannot identify", async () => {
+		const { impl, calls } = stubFetch([
+			json({ id: 7, tracks: [{ id: 1, urn: "soundcloud:tracks:1" }, { title: "no id" }] }),
+		]);
+		const client = new SoundCloudClient(tokens().provider, undefined, impl);
+
+		await expect(client.removeTrackFromPlaylist(7, 1)).rejects.toThrow("hides some tracks");
+		expect(calls).toHaveLength(1);
+	});
+
+	it("rejects a response whose fields have the wrong type", async () => {
+		const { impl } = stubFetch([json({ id: 7, tracks: "not a list" })]);
+		const client = new SoundCloudClient(tokens().provider, undefined, impl);
+
+		await expect(client.getPlaylist(7)).rejects.toMatchObject({ status: 502 });
+	});
+
 	it("removes one track from a playlist and keeps the rest", async () => {
 		const { impl, calls } = stubFetch([
 			json({

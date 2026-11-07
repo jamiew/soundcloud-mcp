@@ -104,6 +104,12 @@ use them through the server, not by inspecting credentials.
 - Declare `outputSchema` only when every result is an object. Omit it for tools
   that can return strings or bare arrays, including `next_page`; otherwise the
   SDK can reject missing `structuredContent`.
+- Validate API responses with the schemas in `src/types.ts`, never by casting
+  JSON. Each lists only the fields the server reads or returns, all optional,
+  in a `looseObject` so other fields pass through. Tool results go through
+  `compact`, which trims each track, user and playlist, found by URN, to those
+  fields. Tools that return entities take `verbose` to skip it. A new field
+  the model needs goes in the matching shape there.
 - Return one short, actionable error sentence to the model, never a raw API body.
   Wrap every tool handler, auth tools included, in `run` from `src/tools.ts`.
   Resources and prompts throw the same mapped message.

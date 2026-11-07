@@ -1,15 +1,15 @@
 // Shared API client: token refresh, URN normalization, and cursor pagination.
 
-import type {
-	FeedItem,
-	Paginated,
-	SoundCloudComment,
-	SoundCloudPlaylist,
-	SoundCloudTrack,
-	SoundCloudUser,
-	SystemPlaylist,
-	TrackStreams,
-	WebProfile,
+import { z } from "zod";
+import {
+	CommentSchema,
+	FeedItemSchema,
+	PlaylistSchema,
+	pageOf,
+	TrackSchema,
+	TrackStreamsSchema,
+	UserSchema,
+	WebProfileSchema,
 } from "./types.js";
 
 export const API_BASE = "https://api.soundcloud.com";
@@ -79,7 +79,10 @@ type TrackSort = "asc" | "desc";
 type LibraryKind = "tracks" | "playlists";
 /** Only likes cover stations (system playlists). */
 type LikeKind = LibraryKind | "stations";
-type LibraryItem = SoundCloudTrack | SoundCloudPlaylist | SystemPlaylist;
+
+const TrackPage = pageOf(TrackSchema);
+const PlaylistPage = pageOf(PlaylistSchema);
+const UserPage = pageOf(UserSchema);
 
 interface RequestSpec {
 	method?: "GET" | "POST" | "PUT" | "DELETE";
@@ -102,7 +105,8 @@ export class SoundCloudClient {
 		return new SoundCloudClient(this.tokens, this.baseUrl, this.fetchImpl, signal);
 	}
 
-	async request<T>(path: string, spec: RequestSpec = {}): Promise<T> {
+	/** Sends one API call and returns the parsed JSON body, or undefined if it is empty. */
+	async request(path: string, spec: RequestSpec = {}): Promise<unknown> {
 		const url = path.startsWith("http") ? new URL(path) : new URL(this.baseUrl + path);
 		// Every request carries the user's token, so never send one off the API host.
 		if (url.origin !== new URL(this.baseUrl).origin) {
@@ -115,7 +119,7 @@ export class SoundCloudClient {
 		const deadline = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
 		const signal = this.signal ? AbortSignal.any([this.signal, deadline]) : deadline;
 		try {
-			return await this.attempt<T>(url.toString(), spec, signal);
+			return await this.attempt(url.toString(), spec, signal);
 		} catch (error) {
 			if (deadline.aborted && !this.signal?.aborted) {
 				throw new SoundCloudApiError("SoundCloud did not answer in time. Try again.", 504);
@@ -124,7 +128,7 @@ export class SoundCloudClient {
 		}
 	}
 
-	private async attempt<T>(url: string, spec: RequestSpec, signal: AbortSignal): Promise<T> {
+	private async attempt(url: string, spec: RequestSpec, signal: AbortSignal): Promise<unknown> {
 		let token = await this.tokens.getAccessToken();
 		let refreshed = false;
 
@@ -149,9 +153,9 @@ export class SoundCloudClient {
 				throw new SoundCloudApiError(message, response.status);
 			}
 
-			if (response.status === 204) return undefined as T;
+			if (response.status === 204) return undefined;
 			const text = await response.text();
-			return (text ? JSON.parse(text) : undefined) as T;
+			return text ? JSON.parse(text) : undefined;
 		}
 	}
 
@@ -179,149 +183,153 @@ export class SoundCloudClient {
 		});
 	}
 
-	// Cursor pagination: `next_href` is a fully-qualified URL, so it is fetched
-	// as-is rather than being re-based onto the API root.
-	page<T>(path: string, query: Query = {}): Promise<Paginated<T>> {
-		return this.request<Paginated<T>>(path, {
-			query: { linked_partitioning: true, ...query },
-		});
+	/** Checks the fields this server reads. Every other field passes through. */
+	private async read<S extends z.ZodType>(
+		schema: S,
+		path: string,
+		spec?: RequestSpec
+	): Promise<z.output<S>> {
+		const parsed = schema.safeParse(await this.request(path, spec));
+		if (!parsed.success) {
+			throw new SoundCloudApiError("SoundCloud sent a response this server cannot read.", 502);
+		}
+		return parsed.data;
 	}
 
-	nextPage<T>(nextHref: string): Promise<Paginated<T>> {
-		return this.request<Paginated<T>>(nextHref);
+	// Cursor pagination: `next_href` is a fully-qualified URL, so it is fetched
+	// as-is rather than being re-based onto the API root.
+	private page<S extends z.ZodType>(schema: S, path: string, query: Query = {}) {
+		return this.read(schema, path, { query: { linked_partitioning: true, ...query } });
+	}
+
+	/** Any endpoint can sit behind a next_href, so the result is left unchecked. */
+	nextPage(nextHref: string): Promise<unknown> {
+		return this.request(nextHref);
 	}
 
 	// --- Discovery ---
 	searchTracks(query: Query & { q: string }) {
-		return this.page<SoundCloudTrack>("/tracks", query);
+		return this.page(TrackPage, "/tracks", query);
 	}
 	searchPlaylists(q: string, limit: number) {
-		return this.page<SoundCloudPlaylist>("/playlists", { q, limit });
+		return this.page(PlaylistPage, "/playlists", { q, limit });
 	}
 	searchUsers(q: string, limit: number) {
-		return this.page<SoundCloudUser>("/users", { q, limit });
+		return this.page(UserPage, "/users", { q, limit });
 	}
 	getTrack(id: string | number) {
-		return this.request<SoundCloudTrack>(`/tracks/${toUrn("tracks", id)}`);
+		return this.read(TrackSchema, `/tracks/${toUrn("tracks", id)}`);
 	}
 	getUser(id: string | number) {
-		return this.request<SoundCloudUser>(`/users/${toUrn("users", id)}`);
+		return this.read(UserSchema, `/users/${toUrn("users", id)}`);
 	}
 	getPlaylist(id: string | number) {
-		return this.request<SoundCloudPlaylist>(`/playlists/${toUrn("playlists", id)}`);
+		return this.read(PlaylistSchema, `/playlists/${toUrn("playlists", id)}`);
 	}
 	getPlaylistTracks(id: string | number, limit: number) {
-		return this.page<SoundCloudTrack>(`/playlists/${toUrn("playlists", id)}/tracks`, { limit });
+		return this.page(TrackPage, `/playlists/${toUrn("playlists", id)}/tracks`, { limit });
 	}
 	getRelatedTracks(id: string | number, limit: number) {
-		return this.request<SoundCloudTrack[]>(`/tracks/${toUrn("tracks", id)}/related`, {
+		return this.read(z.array(TrackSchema), `/tracks/${toUrn("tracks", id)}/related`, {
 			query: { limit },
 		});
 	}
 	getRelatedArtists(id: string | number, limit: number) {
-		return this.request<SoundCloudUser[]>(`/users/${toUrn("users", id)}/related`, {
+		return this.read(z.array(UserSchema), `/users/${toUrn("users", id)}/related`, {
 			query: { limit },
 		});
 	}
 	getUserTracks(id: string | number, limit: number, sort?: TrackSort) {
-		return this.page<SoundCloudTrack>(`/users/${toUrn("users", id)}/tracks`, { limit, sort });
+		return this.page(TrackPage, `/users/${toUrn("users", id)}/tracks`, { limit, sort });
 	}
 	getUserPlaylists(id: string | number, limit: number) {
-		return this.page<SoundCloudPlaylist>(`/users/${toUrn("users", id)}/playlists`, { limit });
+		return this.page(PlaylistPage, `/users/${toUrn("users", id)}/playlists`, { limit });
 	}
 	// Paths are spelled out per kind so the api-sync audit can match each literal.
 	getUserLikes(id: string | number, limit: number, kind: LikeKind = "tracks") {
 		const user = toUrn("users", id);
-		const paths = {
-			tracks: `/users/${user}/likes/tracks`,
-			playlists: `/users/${user}/likes/playlists`,
-			stations: `/users/${user}/likes/system-playlists`,
-		};
-		return this.page<LibraryItem>(paths[kind], { limit });
+		if (kind === "tracks") return this.page(TrackPage, `/users/${user}/likes/tracks`, { limit });
+		const path =
+			kind === "stations"
+				? `/users/${user}/likes/system-playlists`
+				: `/users/${user}/likes/playlists`;
+		return this.page(PlaylistPage, path, { limit });
 	}
 	getUserReposts(id: string | number, limit: number, kind: LibraryKind = "tracks") {
 		const user = toUrn("users", id);
-		return this.page<LibraryItem>(
-			kind === "playlists" ? `/users/${user}/reposts/playlists` : `/users/${user}/reposts/tracks`,
-			{ limit }
-		);
+		return kind === "playlists"
+			? this.page(PlaylistPage, `/users/${user}/reposts/playlists`, { limit })
+			: this.page(TrackPage, `/users/${user}/reposts/tracks`, { limit });
 	}
 	getUserFollowers(id: string | number, limit: number) {
-		return this.page<SoundCloudUser>(`/users/${toUrn("users", id)}/followers`, { limit });
+		return this.page(UserPage, `/users/${toUrn("users", id)}/followers`, { limit });
 	}
 	getUserFollowings(id: string | number, limit: number) {
-		return this.page<SoundCloudUser>(`/users/${toUrn("users", id)}/followings`, { limit });
+		return this.page(UserPage, `/users/${toUrn("users", id)}/followings`, { limit });
 	}
 	getUserWebProfiles(id: string | number, limit: number) {
-		return this.request<WebProfile[]>(`/users/${toUrn("users", id)}/web-profiles`, {
+		return this.read(z.array(WebProfileSchema), `/users/${toUrn("users", id)}/web-profiles`, {
 			query: { limit },
 		});
 	}
 	getTrackStreams(id: string | number) {
-		return this.request<TrackStreams>(`/tracks/${toUrn("tracks", id)}/streams`);
+		return this.read(TrackStreamsSchema, `/tracks/${toUrn("tracks", id)}/streams`);
 	}
 	getComments(id: string | number, limit: number) {
-		return this.page<SoundCloudComment>(`/tracks/${toUrn("tracks", id)}/comments`, { limit });
-	}
-	/** SoundCloud still calls likers "favoriters" in this path. */
-	getTrackLikers(id: string | number, limit: number) {
-		return this.page<SoundCloudUser>(`/tracks/${toUrn("tracks", id)}/favoriters`, { limit });
-	}
-	getTrackReposters(id: string | number, limit: number) {
-		return this.page<SoundCloudUser>(`/tracks/${toUrn("tracks", id)}/reposters`, { limit });
-	}
-	getPlaylistReposters(id: string | number, limit: number) {
-		return this.page<SoundCloudUser>(`/playlists/${toUrn("playlists", id)}/reposters`, {
+		return this.page(pageOf(CommentSchema), `/tracks/${toUrn("tracks", id)}/comments`, {
 			limit,
 		});
 	}
+	/** SoundCloud still calls likers "favoriters" in this path. */
+	getTrackLikers(id: string | number, limit: number) {
+		return this.page(UserPage, `/tracks/${toUrn("tracks", id)}/favoriters`, { limit });
+	}
+	getTrackReposters(id: string | number, limit: number) {
+		return this.page(UserPage, `/tracks/${toUrn("tracks", id)}/reposters`, { limit });
+	}
+	getPlaylistReposters(id: string | number, limit: number) {
+		return this.page(UserPage, `/playlists/${toUrn("playlists", id)}/reposters`, { limit });
+	}
 	/** Takes a `soundcloud:system-playlists:…` URN or its `track-stations:{id}` part. */
 	getSystemPlaylist(id: string) {
-		return this.request<SystemPlaylist>(`/system-playlists/${id.trim()}`);
+		return this.read(PlaylistSchema, `/system-playlists/${id.trim()}`);
 	}
-	/** Turns a soundcloud.com permalink into the underlying API resource. */
-	resolve(url: string) {
-		return this.request<SoundCloudTrack | SoundCloudUser | SoundCloudPlaylist | SystemPlaylist>(
-			"/resolve",
-			{ query: { url } }
-		);
+	/** Turns a soundcloud.com permalink into a track, user, playlist or station, unchecked. */
+	resolve(url: string): Promise<unknown> {
+		return this.request("/resolve", { query: { url } });
 	}
 
 	// --- Me / library ---
 	getMe() {
-		return this.request<SoundCloudUser>("/me");
+		return this.read(UserSchema, "/me");
 	}
 	getMyLikes(limit: number, kind: LikeKind = "tracks") {
-		const paths = {
-			tracks: "/me/likes/tracks",
-			playlists: "/me/likes/playlists",
-			stations: "/me/likes/system-playlists",
-		};
-		return this.page<LibraryItem>(paths[kind], { limit });
+		if (kind === "tracks") return this.page(TrackPage, "/me/likes/tracks", { limit });
+		const path = kind === "stations" ? "/me/likes/system-playlists" : "/me/likes/playlists";
+		return this.page(PlaylistPage, path, { limit });
 	}
 	getMyReposts(limit: number, kind: LibraryKind = "tracks") {
-		return this.page<LibraryItem>(
-			kind === "playlists" ? "/me/reposts/playlists" : "/me/reposts/tracks",
-			{ limit }
-		);
+		return kind === "playlists"
+			? this.page(PlaylistPage, "/me/reposts/playlists", { limit })
+			: this.page(TrackPage, "/me/reposts/tracks", { limit });
 	}
 	getMyPlaylists(limit: number) {
-		return this.page<SoundCloudPlaylist>("/me/playlists", { limit });
+		return this.page(PlaylistPage, "/me/playlists", { limit });
 	}
 	getMyTracks(limit: number, sort?: TrackSort) {
-		return this.page<SoundCloudTrack>("/me/tracks", { limit, sort });
+		return this.page(TrackPage, "/me/tracks", { limit, sort });
 	}
 	getMyFollowings(limit: number) {
-		return this.page<SoundCloudUser>("/me/followings", { limit });
+		return this.page(UserPage, "/me/followings", { limit });
 	}
 	getMyFollowers(limit: number) {
-		return this.page<SoundCloudUser>("/me/followers", { limit });
+		return this.page(UserPage, "/me/followers", { limit });
 	}
 	// The spec deprecates this read in favor of /users/{urn}, which cannot
 	// answer the follow question. 404 means "not followed" (or no such user).
 	async isFollowing(id: string | number): Promise<boolean> {
 		try {
-			await this.request<SoundCloudUser>(`/me/followings/${toUrn("users", id)}`);
+			await this.request(`/me/followings/${toUrn("users", id)}`);
 			return true;
 		} catch (error) {
 			if (error instanceof SoundCloudApiError && error.status === 404) return false;
@@ -330,53 +338,53 @@ export class SoundCloudClient {
 	}
 	/** New tracks from people you follow — the closest thing to a home feed. */
 	getFeed(limit: number, kind: "tracks" | "all" = "tracks") {
-		return this.page<FeedItem>(kind === "all" ? "/me/feed" : "/me/feed/tracks", { limit });
+		return this.page(pageOf(FeedItemSchema), kind === "all" ? "/me/feed" : "/me/feed/tracks", {
+			limit,
+		});
 	}
 	/** This endpoint ignores `limit` and returns the whole history, so it is trimmed here. */
 	async getRecentlyPlayed(limit: number) {
-		const page = await this.page<SoundCloudTrack>("/me/recently-played/tracks", { limit });
+		const page = await this.page(TrackPage, "/me/recently-played/tracks", { limit });
 		return { ...page, collection: page.collection.slice(0, limit) };
 	}
 	/** Revokes this app's access for the user and invalidates every token it issued them. */
 	disconnect() {
-		return this.request<void>("/disconnect", { method: "POST" });
+		return this.request("/disconnect", { method: "POST" });
 	}
 
 	// --- Social writes ---
 	likeTrack(id: string | number) {
-		return this.request<void>(`/likes/tracks/${toUrn("tracks", id)}`, { method: "POST" });
+		return this.request(`/likes/tracks/${toUrn("tracks", id)}`, { method: "POST" });
 	}
 	unlikeTrack(id: string | number) {
-		return this.request<void>(`/likes/tracks/${toUrn("tracks", id)}`, { method: "DELETE" });
+		return this.request(`/likes/tracks/${toUrn("tracks", id)}`, { method: "DELETE" });
 	}
 	repostTrack(id: string | number) {
-		return this.request<void>(`/reposts/tracks/${toUrn("tracks", id)}`, { method: "POST" });
+		return this.request(`/reposts/tracks/${toUrn("tracks", id)}`, { method: "POST" });
 	}
 	unrepostTrack(id: string | number) {
-		return this.request<void>(`/reposts/tracks/${toUrn("tracks", id)}`, { method: "DELETE" });
+		return this.request(`/reposts/tracks/${toUrn("tracks", id)}`, { method: "DELETE" });
 	}
 	likePlaylist(id: string | number) {
-		return this.request<void>(`/likes/playlists/${toUrn("playlists", id)}`, { method: "POST" });
+		return this.request(`/likes/playlists/${toUrn("playlists", id)}`, { method: "POST" });
 	}
 	unlikePlaylist(id: string | number) {
-		return this.request<void>(`/likes/playlists/${toUrn("playlists", id)}`, { method: "DELETE" });
+		return this.request(`/likes/playlists/${toUrn("playlists", id)}`, { method: "DELETE" });
 	}
 	repostPlaylist(id: string | number) {
-		return this.request<void>(`/reposts/playlists/${toUrn("playlists", id)}`, { method: "POST" });
+		return this.request(`/reposts/playlists/${toUrn("playlists", id)}`, { method: "POST" });
 	}
 	unrepostPlaylist(id: string | number) {
-		return this.request<void>(`/reposts/playlists/${toUrn("playlists", id)}`, {
-			method: "DELETE",
-		});
+		return this.request(`/reposts/playlists/${toUrn("playlists", id)}`, { method: "DELETE" });
 	}
 	followUser(id: string | number) {
-		return this.request<void>(`/me/followings/${toUrn("users", id)}`, { method: "PUT" });
+		return this.request(`/me/followings/${toUrn("users", id)}`, { method: "PUT" });
 	}
 	unfollowUser(id: string | number) {
-		return this.request<void>(`/me/followings/${toUrn("users", id)}`, { method: "DELETE" });
+		return this.request(`/me/followings/${toUrn("users", id)}`, { method: "DELETE" });
 	}
 	addComment(id: string | number, body: string, timestamp?: number) {
-		return this.request<SoundCloudComment>(`/tracks/${toUrn("tracks", id)}/comments`, {
+		return this.read(CommentSchema, `/tracks/${toUrn("tracks", id)}/comments`, {
 			method: "POST",
 			body: { comment: { body, ...(timestamp !== undefined ? { timestamp } : {}) } },
 		});
@@ -389,7 +397,7 @@ export class SoundCloudClient {
 		sharing: "public" | "private";
 		trackIds?: (string | number)[];
 	}) {
-		return this.request<SoundCloudPlaylist>("/playlists", {
+		return this.read(PlaylistSchema, "/playlists", {
 			method: "POST",
 			body: {
 				playlist: {
@@ -416,36 +424,38 @@ export class SoundCloudClient {
 		if (updates.description !== undefined) playlist.description = updates.description;
 		if (updates.sharing !== undefined) playlist.sharing = updates.sharing;
 		if (updates.trackIds !== undefined) playlist.tracks = updates.trackIds.map(playlistTrackRef);
-		return this.request<SoundCloudPlaylist>(`/playlists/${toUrn("playlists", id)}`, {
+		return this.read(PlaylistSchema, `/playlists/${toUrn("playlists", id)}`, {
 			method: "PUT",
 			body: { playlist },
 		});
 	}
 
 	deletePlaylist(id: string | number) {
-		return this.request<void>(`/playlists/${toUrn("playlists", id)}`, { method: "DELETE" });
+		return this.request(`/playlists/${toUrn("playlists", id)}`, { method: "DELETE" });
 	}
 
 	/**
 	 * Reads every track id for a read-modify-write. The playlist GET omits blocked
 	 * tracks unless asked, and a PUT without them deletes them. Tracks the API
-	 * never returns (track_count is higher) would also be deleted, so refuse.
+	 * never returns (track_count is higher) or returns without an id would also
+	 * be deleted, so refuse.
 	 */
 	private async getTracklist(id: string | number): Promise<(string | number)[]> {
-		const playlist = await this.request<SoundCloudPlaylist>(
-			`/playlists/${toUrn("playlists", id)}`,
-			{
-				query: { access: "playable,preview,blocked" },
-			}
-		);
+		const playlist = await this.read(PlaylistSchema, `/playlists/${toUrn("playlists", id)}`, {
+			query: { access: "playable,preview,blocked" },
+		});
 		const tracks = playlist.tracks ?? [];
-		if (tracks.length < (playlist.track_count ?? 0)) {
+		const ids = tracks.flatMap((track) => {
+			const ref = track.urn ?? track.id;
+			return ref == null ? [] : [ref];
+		});
+		if (ids.length < Math.max(tracks.length, playlist.track_count ?? 0)) {
 			throw new SoundCloudApiError(
 				"SoundCloud hides some tracks in this playlist, and changing it here would delete them. Edit it on soundcloud.com instead.",
 				409
 			);
 		}
-		return tracks.map((t) => t.urn ?? t.id);
+		return ids;
 	}
 
 	/** SoundCloud has no append endpoint; the whole tracklist must be re-sent. */

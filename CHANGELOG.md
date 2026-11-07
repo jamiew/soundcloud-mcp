@@ -7,6 +7,15 @@
   read or prompt also stops its SoundCloud requests.
 - When SoundCloud rate limits a call and sends `Retry-After`, the error now says
   how many seconds to wait.
+- Tool results are smaller. Each track, user and playlist now carries only the
+  fields a model needs: ids, URNs, title or name, uploader, duration, links,
+  counts, access and dates. Descriptions and fields like `waveform_url` or
+  `subscriptions` are gone unless you pass `verbose: true`. A 10-track search
+  drops from about 30 KB to 9 KB, and a 28-track playlist from 148 KB to 25 KB.
+  Prompts embed the compact form; resources still return full objects.
+- API responses are now checked against the fields the server reads, instead
+  of being trusted as typed. A response with a wrongly typed field returns a
+  short error.
 - The server version comes from `package.json`, so it can no longer drift.
 
 ## 2026-11-07 — 1.1.0

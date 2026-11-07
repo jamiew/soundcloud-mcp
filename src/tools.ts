@@ -11,12 +11,14 @@ import {
 	SoundCloudAuthError,
 	type SoundCloudClient,
 } from "./client.js";
-import type {
-	SoundCloudPlaylist,
-	SoundCloudTrack,
-	SystemPlaylist,
-	TrackStreams,
-	WebProfile,
+import {
+	CompactPlaylist,
+	CompactTrack,
+	CompactUser,
+	type SoundCloudPlaylist,
+	type SoundCloudTrack,
+	type TrackStreams,
+	type WebProfile,
 } from "./types.js";
 
 type ContentBlock =
@@ -53,6 +55,10 @@ const limit = z.number().int().min(1).max(200).default(50);
 const trackSort = z.enum(["asc", "desc"]).optional();
 const libraryKind = z.enum(["tracks", "playlists"]).default("tracks");
 const likeKind = z.enum(["tracks", "playlists", "stations"]).default("tracks");
+const verbose = z
+	.boolean()
+	.default(false)
+	.describe("Return every field SoundCloud sends, such as descriptions, not the compact summary");
 
 // The text block mirrors structuredContent for clients that read only text.
 // Compact JSON keeps it cheap in model context.
@@ -65,6 +71,29 @@ function ok(data: unknown, extra: ContentBlock[] = []): ToolResult {
 			: (data as Record<string, unknown>);
 	}
 	return result;
+}
+
+// The URN's second part names the entity, e.g. soundcloud:tracks:123.
+const COMPACT: Record<string, z.ZodType> = {
+	tracks: CompactTrack,
+	users: CompactUser,
+	playlists: CompactPlaylist,
+	"system-playlists": CompactPlaylist,
+};
+
+/**
+ * Trims every track, user and playlist in a result, at any depth, to the
+ * fields in types.ts. Anything else, such as page envelopes, feed wrappers and
+ * comments, keeps its own fields.
+ */
+export function compact(value: unknown): unknown {
+	if (Array.isArray(value)) return value.map(compact);
+	if (typeof value !== "object" || value === null) return value;
+	const kind = "urn" in value && typeof value.urn === "string" ? value.urn.split(":")[1] : "";
+	const schema = kind ? COMPACT[kind] : undefined;
+	const parsed = schema?.safeParse(value);
+	if (parsed?.success) return parsed.data;
+	return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, compact(item)]));
 }
 
 // Keep API errors short and actionable.
@@ -85,14 +114,17 @@ function errorMessage(error: unknown): string {
 	return "SoundCloud request failed. Try again or reconnect.";
 }
 
-/** Runs a tool handler, turning results into MCP content and errors into clean text. */
+/**
+ * Runs a tool handler, turning results into MCP content and errors into clean
+ * text. Results are compact unless `verbose`; `links` sees the full data.
+ */
 export async function run<T>(
 	fn: () => Promise<T>,
-	extra?: (data: T) => ContentBlock[]
+	{ links, verbose = false }: { links?: (data: T) => ContentBlock[]; verbose?: boolean } = {}
 ): Promise<ToolResult> {
 	try {
 		const data = await fn();
-		return ok(data, extra?.(data) ?? []);
+		return ok(verbose ? data : compact(data), links?.(data) ?? []);
 	} catch (error) {
 		return { content: [{ type: "text", text: errorMessage(error) }], isError: true };
 	}
@@ -108,14 +140,14 @@ async function orThrow<T>(fn: () => Promise<T>): Promise<T> {
 	}
 }
 
-function trackLinks(track?: SoundCloudTrack): ContentBlock[] {
-	if (!track) return [];
+function trackLinks(track: SoundCloudTrack): ContentBlock[] {
 	const links: ContentBlock[] = [];
+	const name = track.title ?? "track";
 	if (track.permalink_url) {
 		links.push({
 			type: "resource_link",
 			uri: track.permalink_url,
-			name: track.title ?? "track",
+			name,
 			mimeType: "text/html",
 			...(track.user?.username ? { description: `by ${track.user.username}` } : {}),
 		});
@@ -124,15 +156,15 @@ function trackLinks(track?: SoundCloudTrack): ContentBlock[] {
 		links.push({
 			type: "resource_link",
 			uri: track.artwork_url,
-			name: `${track.title ?? "track"} — artwork`,
+			name: `${name} — artwork`,
 			mimeType: "image/jpeg",
 		});
 	}
 	return links;
 }
 
-function playlistLinks(playlist?: SoundCloudPlaylist | SystemPlaylist): ContentBlock[] {
-	if (!playlist?.permalink_url) return [];
+function playlistLinks(playlist: SoundCloudPlaylist): ContentBlock[] {
+	if (!playlist.permalink_url) return [];
 	return [
 		{
 			type: "resource_link",
@@ -144,20 +176,24 @@ function playlistLinks(playlist?: SoundCloudPlaylist | SystemPlaylist): ContentB
 }
 
 function webProfileLinks(profiles: WebProfile[]): ContentBlock[] {
-	return profiles
-		.filter((profile) => profile.url)
-		.map((profile) => ({
-			type: "resource_link",
-			uri: profile.url,
-			name: profile.title || profile.service || profile.url,
-			mimeType: "text/html",
-		}));
+	return profiles.flatMap((profile) =>
+		profile.url
+			? [
+					{
+						type: "resource_link" as const,
+						uri: profile.url,
+						name: profile.title || profile.service || profile.url,
+						mimeType: "text/html",
+					},
+				]
+			: []
+	);
 }
 
 // Full-length streams are HLS only; the MP3 preview is a snippet, so it comes
 // last. All URLs are time-limited by SoundCloud.
-function streamLinks(streams?: TrackStreams): ContentBlock[] {
-	const hls = streams?.hls_mp3_128_url ?? streams?.hls_aac_160_url;
+function streamLinks(streams: TrackStreams): ContentBlock[] {
+	const hls = streams.hls_mp3_128_url ?? streams.hls_aac_160_url;
 	if (hls) {
 		return [
 			{
@@ -168,7 +204,7 @@ function streamLinks(streams?: TrackStreams): ContentBlock[] {
 			},
 		];
 	}
-	const preview = streams?.preview_mp3_128_url;
+	const preview = streams.preview_mp3_128_url;
 	if (!preview) return [];
 	return [{ type: "resource_link", uri: preview, name: "audio preview", mimeType: "audio/mpeg" }];
 }
@@ -200,26 +236,40 @@ export function registerTools(
 				durationFrom: z.number().optional().describe("Milliseconds"),
 				durationTo: z.number().optional().describe("Milliseconds"),
 				access: z.array(z.enum(["playable", "preview", "blocked"])).optional(),
+				verbose,
 			}),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Search tracks", ...READ },
 		},
 		async (
-			{ query, limit: max, genres, tags, bpmFrom, bpmTo, durationFrom, durationTo, access },
+			{
+				query,
+				limit: max,
+				genres,
+				tags,
+				bpmFrom,
+				bpmTo,
+				durationFrom,
+				durationTo,
+				access,
+				verbose,
+			},
 			ctx
 		) =>
-			run(() =>
-				api(ctx).searchTracks({
-					q: query,
-					limit: max,
-					...(genres?.length ? { genres: genres.join(",") } : {}),
-					...(tags?.length ? { tags: tags.join(",") } : {}),
-					...(bpmFrom !== undefined ? { "bpm[from]": bpmFrom } : {}),
-					...(bpmTo !== undefined ? { "bpm[to]": bpmTo } : {}),
-					...(durationFrom !== undefined ? { "duration[from]": durationFrom } : {}),
-					...(durationTo !== undefined ? { "duration[to]": durationTo } : {}),
-					...(access?.length ? { access: access.join(",") } : {}),
-				})
+			run(
+				() =>
+					api(ctx).searchTracks({
+						q: query,
+						limit: max,
+						...(genres?.length ? { genres: genres.join(",") } : {}),
+						...(tags?.length ? { tags: tags.join(",") } : {}),
+						...(bpmFrom !== undefined ? { "bpm[from]": bpmFrom } : {}),
+						...(bpmTo !== undefined ? { "bpm[to]": bpmTo } : {}),
+						...(durationFrom !== undefined ? { "duration[from]": durationFrom } : {}),
+						...(durationTo !== undefined ? { "duration[to]": durationTo } : {}),
+						...(access?.length ? { access: access.join(",") } : {}),
+					}),
+				{ verbose }
 			)
 	);
 
@@ -228,11 +278,12 @@ export function registerTools(
 		{
 			title: "Search playlists",
 			description: "Search SoundCloud playlists by keyword.",
-			inputSchema: z.object({ query: z.string().min(1), limit }),
+			inputSchema: z.object({ query: z.string().min(1), limit, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Search playlists", ...READ },
 		},
-		async ({ query, limit: max }, ctx) => run(() => api(ctx).searchPlaylists(query, max))
+		async ({ query, limit: max, verbose }, ctx) =>
+			run(() => api(ctx).searchPlaylists(query, max), { verbose })
 	);
 
 	server.registerTool(
@@ -240,11 +291,12 @@ export function registerTools(
 		{
 			title: "Search users",
 			description: "Search SoundCloud users/artists by keyword.",
-			inputSchema: z.object({ query: z.string().min(1), limit }),
+			inputSchema: z.object({ query: z.string().min(1), limit, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Search users", ...READ },
 		},
-		async ({ query, limit: max }, ctx) => run(() => api(ctx).searchUsers(query, max))
+		async ({ query, limit: max, verbose }, ctx) =>
+			run(() => api(ctx).searchUsers(query, max), { verbose })
 	);
 
 	server.registerTool(
@@ -253,10 +305,10 @@ export function registerTools(
 			title: "Resolve a SoundCloud URL",
 			description:
 				"Resolve a soundcloud.com or on.soundcloud.com link to a track, user, playlist, or station. Use for pasted SoundCloud links; pass station URNs to get_station.",
-			inputSchema: z.object({ url: z.string().url() }),
+			inputSchema: z.object({ url: z.string().url(), verbose }),
 			annotations: { title: "Resolve a SoundCloud URL", ...READ },
 		},
-		async ({ url }, ctx) => run(() => api(ctx).resolve(url))
+		async ({ url, verbose }, ctx) => run(() => api(ctx).resolve(url), { verbose })
 	);
 
 	server.registerTool(
@@ -264,10 +316,11 @@ export function registerTools(
 		{
 			title: "Get track",
 			description: "Get details for one track.",
-			inputSchema: z.object({ trackId: id }),
+			inputSchema: z.object({ trackId: id, verbose }),
 			annotations: { title: "Get track", ...READ },
 		},
-		async ({ trackId }, ctx) => run(() => api(ctx).getTrack(trackId), trackLinks)
+		async ({ trackId, verbose }, ctx) =>
+			run(() => api(ctx).getTrack(trackId), { links: trackLinks, verbose })
 	);
 
 	server.registerTool(
@@ -275,10 +328,10 @@ export function registerTools(
 		{
 			title: "Get user",
 			description: "Get a user's public profile.",
-			inputSchema: z.object({ userId: id }),
+			inputSchema: z.object({ userId: id, verbose }),
 			annotations: { title: "Get user", ...READ },
 		},
-		async ({ userId }, ctx) => run(() => api(ctx).getUser(userId))
+		async ({ userId, verbose }, ctx) => run(() => api(ctx).getUser(userId), { verbose })
 	);
 
 	server.registerTool(
@@ -287,12 +340,12 @@ export function registerTools(
 			title: "Get an artist's tracks",
 			description:
 				"List a user's uploads. Find ids with search_users. Sort: asc for oldest first, desc for newest.",
-			inputSchema: z.object({ userId: id, limit, sort: trackSort }),
+			inputSchema: z.object({ userId: id, limit, sort: trackSort, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's tracks", ...READ },
 		},
-		async ({ userId, limit: max, sort }, ctx) =>
-			run(() => api(ctx).getUserTracks(userId, max, sort))
+		async ({ userId, limit: max, sort, verbose }, ctx) =>
+			run(() => api(ctx).getUserTracks(userId, max, sort), { verbose })
 	);
 
 	server.registerTool(
@@ -300,11 +353,12 @@ export function registerTools(
 		{
 			title: "Get an artist's playlists",
 			description: "List the playlists a user has published.",
-			inputSchema: z.object({ userId: id, limit }),
+			inputSchema: z.object({ userId: id, limit, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's playlists", ...READ },
 		},
-		async ({ userId, limit: max }, ctx) => run(() => api(ctx).getUserPlaylists(userId, max))
+		async ({ userId, limit: max, verbose }, ctx) =>
+			run(() => api(ctx).getUserPlaylists(userId, max), { verbose })
 	);
 
 	server.registerTool(
@@ -312,11 +366,12 @@ export function registerTools(
 		{
 			title: "Get an artist's likes",
 			description: "List tracks, playlists, or stations a user has liked.",
-			inputSchema: z.object({ userId: id, limit, kind: likeKind }),
+			inputSchema: z.object({ userId: id, limit, kind: likeKind, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's likes", ...READ },
 		},
-		async ({ userId, limit: max, kind }, ctx) => run(() => api(ctx).getUserLikes(userId, max, kind))
+		async ({ userId, limit: max, kind, verbose }, ctx) =>
+			run(() => api(ctx).getUserLikes(userId, max, kind), { verbose })
 	);
 
 	server.registerTool(
@@ -324,12 +379,12 @@ export function registerTools(
 		{
 			title: "Get an artist's reposts",
 			description: "List tracks or playlists a user has reposted.",
-			inputSchema: z.object({ userId: id, limit, kind: libraryKind }),
+			inputSchema: z.object({ userId: id, limit, kind: libraryKind, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's reposts", ...READ },
 		},
-		async ({ userId, limit: max, kind }, ctx) =>
-			run(() => api(ctx).getUserReposts(userId, max, kind))
+		async ({ userId, limit: max, kind, verbose }, ctx) =>
+			run(() => api(ctx).getUserReposts(userId, max, kind), { verbose })
 	);
 
 	server.registerTool(
@@ -337,11 +392,12 @@ export function registerTools(
 		{
 			title: "Get an artist's followers",
 			description: "List the users who follow a user.",
-			inputSchema: z.object({ userId: id, limit }),
+			inputSchema: z.object({ userId: id, limit, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get an artist's followers", ...READ },
 		},
-		async ({ userId, limit: max }, ctx) => run(() => api(ctx).getUserFollowers(userId, max))
+		async ({ userId, limit: max, verbose }, ctx) =>
+			run(() => api(ctx).getUserFollowers(userId, max), { verbose })
 	);
 
 	server.registerTool(
@@ -349,11 +405,12 @@ export function registerTools(
 		{
 			title: "Get who an artist follows",
 			description: "List the users a user follows.",
-			inputSchema: z.object({ userId: id, limit }),
+			inputSchema: z.object({ userId: id, limit, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get who an artist follows", ...READ },
 		},
-		async ({ userId, limit: max }, ctx) => run(() => api(ctx).getUserFollowings(userId, max))
+		async ({ userId, limit: max, verbose }, ctx) =>
+			run(() => api(ctx).getUserFollowings(userId, max), { verbose })
 	);
 
 	server.registerTool(
@@ -366,7 +423,7 @@ export function registerTools(
 			annotations: { title: "Get an artist's links", ...READ },
 		},
 		async ({ userId, limit: max }, ctx) =>
-			run(() => api(ctx).getUserWebProfiles(userId, max), webProfileLinks)
+			run(() => api(ctx).getUserWebProfiles(userId, max), { links: webProfileLinks })
 	);
 
 	server.registerTool(
@@ -374,10 +431,11 @@ export function registerTools(
 		{
 			title: "Get playlist",
 			description: "Get a playlist's details and its tracks.",
-			inputSchema: z.object({ playlistId: id }),
+			inputSchema: z.object({ playlistId: id, verbose }),
 			annotations: { title: "Get playlist", ...READ },
 		},
-		async ({ playlistId }, ctx) => run(() => api(ctx).getPlaylist(playlistId), playlistLinks)
+		async ({ playlistId, verbose }, ctx) =>
+			run(() => api(ctx).getPlaylist(playlistId), { links: playlistLinks, verbose })
 	);
 
 	server.registerTool(
@@ -393,10 +451,12 @@ export function registerTools(
 					.describe(
 						"soundcloud:system-playlists:track-stations:123, or the part after soundcloud:system-playlists:"
 					),
+				verbose,
 			}),
 			annotations: { title: "Get station", ...READ },
 		},
-		async ({ stationUrn }, ctx) => run(() => api(ctx).getSystemPlaylist(stationUrn), playlistLinks)
+		async ({ stationUrn, verbose }, ctx) =>
+			run(() => api(ctx).getSystemPlaylist(stationUrn), { links: playlistLinks, verbose })
 	);
 
 	server.registerTool(
@@ -404,12 +464,12 @@ export function registerTools(
 		{
 			title: "Get playlist tracks",
 			description: "List a page of playlist tracks.",
-			inputSchema: z.object({ playlistId: id, limit }),
+			inputSchema: z.object({ playlistId: id, limit, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get playlist tracks", ...READ },
 		},
-		async ({ playlistId, limit: max }, ctx) =>
-			run(() => api(ctx).getPlaylistTracks(playlistId, max))
+		async ({ playlistId, limit: max, verbose }, ctx) =>
+			run(() => api(ctx).getPlaylistTracks(playlistId, max), { verbose })
 	);
 
 	server.registerTool(
@@ -417,12 +477,12 @@ export function registerTools(
 		{
 			title: "Get playlist reposters",
 			description: "List the users who reposted a playlist.",
-			inputSchema: z.object({ playlistId: id, limit }),
+			inputSchema: z.object({ playlistId: id, limit, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get playlist reposters", ...READ },
 		},
-		async ({ playlistId, limit: max }, ctx) =>
-			run(() => api(ctx).getPlaylistReposters(playlistId, max))
+		async ({ playlistId, limit: max, verbose }, ctx) =>
+			run(() => api(ctx).getPlaylistReposters(playlistId, max), { verbose })
 	);
 
 	server.registerTool(
@@ -430,11 +490,12 @@ export function registerTools(
 		{
 			title: "Get related tracks",
 			description: "Find related tracks, starting with a track the user likes.",
-			inputSchema: z.object({ trackId: id, limit }),
+			inputSchema: z.object({ trackId: id, limit, verbose }),
 			outputSchema: LIST_OUT,
 			annotations: { title: "Get related tracks", ...READ },
 		},
-		async ({ trackId, limit: max }, ctx) => run(() => api(ctx).getRelatedTracks(trackId, max))
+		async ({ trackId, limit: max, verbose }, ctx) =>
+			run(() => api(ctx).getRelatedTracks(trackId, max), { verbose })
 	);
 
 	server.registerTool(
@@ -442,11 +503,12 @@ export function registerTools(
 		{
 			title: "Get related artists",
 			description: "Find artists related to a user.",
-			inputSchema: z.object({ userId: id, limit }),
+			inputSchema: z.object({ userId: id, limit, verbose }),
 			outputSchema: LIST_OUT,
 			annotations: { title: "Get related artists", ...READ },
 		},
-		async ({ userId, limit: max }, ctx) => run(() => api(ctx).getRelatedArtists(userId, max))
+		async ({ userId, limit: max, verbose }, ctx) =>
+			run(() => api(ctx).getRelatedArtists(userId, max), { verbose })
 	);
 
 	server.registerTool(
@@ -458,7 +520,7 @@ export function registerTools(
 			inputSchema: z.object({ trackId: id }),
 			annotations: { title: "Get stream URL", ...READ },
 		},
-		async ({ trackId }, ctx) => run(() => api(ctx).getTrackStreams(trackId), streamLinks)
+		async ({ trackId }, ctx) => run(() => api(ctx).getTrackStreams(trackId), { links: streamLinks })
 	);
 
 	server.registerTool(
@@ -466,11 +528,12 @@ export function registerTools(
 		{
 			title: "Get track comments",
 			description: "Get comments on a track, with their timestamps into the audio.",
-			inputSchema: z.object({ trackId: id, limit }),
+			inputSchema: z.object({ trackId: id, limit, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get track comments", ...READ },
 		},
-		async ({ trackId, limit: max }, ctx) => run(() => api(ctx).getComments(trackId, max))
+		async ({ trackId, limit: max, verbose }, ctx) =>
+			run(() => api(ctx).getComments(trackId, max), { verbose })
 	);
 
 	server.registerTool(
@@ -478,11 +541,12 @@ export function registerTools(
 		{
 			title: "Get track likers",
 			description: "List the users who liked a track.",
-			inputSchema: z.object({ trackId: id, limit }),
+			inputSchema: z.object({ trackId: id, limit, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get track likers", ...READ },
 		},
-		async ({ trackId, limit: max }, ctx) => run(() => api(ctx).getTrackLikers(trackId, max))
+		async ({ trackId, limit: max, verbose }, ctx) =>
+			run(() => api(ctx).getTrackLikers(trackId, max), { verbose })
 	);
 
 	server.registerTool(
@@ -490,11 +554,12 @@ export function registerTools(
 		{
 			title: "Get track reposters",
 			description: "List the users who reposted a track.",
-			inputSchema: z.object({ trackId: id, limit }),
+			inputSchema: z.object({ trackId: id, limit, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get track reposters", ...READ },
 		},
-		async ({ trackId, limit: max }, ctx) => run(() => api(ctx).getTrackReposters(trackId, max))
+		async ({ trackId, limit: max, verbose }, ctx) =>
+			run(() => api(ctx).getTrackReposters(trackId, max), { verbose })
 	);
 
 	server.registerTool(
@@ -505,10 +570,11 @@ export function registerTools(
 				"Fetch next_href with a GET to the SoundCloud API (https://developers.soundcloud.com/docs/api/guide).",
 			inputSchema: z.object({
 				nextHref: z.string().url().describe("The next_href from a previous result"),
+				verbose,
 			}),
 			annotations: { title: "Next page", ...READ },
 		},
-		async ({ nextHref }, ctx) => run(() => api(ctx).nextPage(nextHref))
+		async ({ nextHref, verbose }, ctx) => run(() => api(ctx).nextPage(nextHref), { verbose })
 	);
 
 	// --- My library ---
@@ -517,9 +583,10 @@ export function registerTools(
 		{
 			title: "Get my profile",
 			description: "Get the connected user's SoundCloud profile.",
+			inputSchema: z.object({ verbose }),
 			annotations: { title: "Get my profile", ...READ },
 		},
-		async (ctx) => run(() => api(ctx).getMe())
+		async ({ verbose }, ctx) => run(() => api(ctx).getMe(), { verbose })
 	);
 
 	server.registerTool(
@@ -527,11 +594,12 @@ export function registerTools(
 		{
 			title: "Get my likes",
 			description: "List tracks, playlists, or stations the connected user has liked.",
-			inputSchema: z.object({ limit, kind: likeKind }),
+			inputSchema: z.object({ limit, kind: likeKind, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my likes", ...READ },
 		},
-		async ({ limit: max, kind }, ctx) => run(() => api(ctx).getMyLikes(max, kind))
+		async ({ limit: max, kind, verbose }, ctx) =>
+			run(() => api(ctx).getMyLikes(max, kind), { verbose })
 	);
 
 	server.registerTool(
@@ -539,11 +607,12 @@ export function registerTools(
 		{
 			title: "Get my reposts",
 			description: "List tracks or playlists the connected user has reposted.",
-			inputSchema: z.object({ limit, kind: libraryKind }),
+			inputSchema: z.object({ limit, kind: libraryKind, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my reposts", ...READ },
 		},
-		async ({ limit: max, kind }, ctx) => run(() => api(ctx).getMyReposts(max, kind))
+		async ({ limit: max, kind, verbose }, ctx) =>
+			run(() => api(ctx).getMyReposts(max, kind), { verbose })
 	);
 
 	server.registerTool(
@@ -551,11 +620,11 @@ export function registerTools(
 		{
 			title: "Get my playlists",
 			description: "List the connected user's playlists.",
-			inputSchema: z.object({ limit }),
+			inputSchema: z.object({ limit, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my playlists", ...READ },
 		},
-		async ({ limit: max }, ctx) => run(() => api(ctx).getMyPlaylists(max))
+		async ({ limit: max, verbose }, ctx) => run(() => api(ctx).getMyPlaylists(max), { verbose })
 	);
 
 	server.registerTool(
@@ -564,11 +633,12 @@ export function registerTools(
 			title: "Get my uploads",
 			description:
 				"List the connected user's uploads. Sort: asc for oldest first, desc for newest.",
-			inputSchema: z.object({ limit, sort: trackSort }),
+			inputSchema: z.object({ limit, sort: trackSort, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my uploads", ...READ },
 		},
-		async ({ limit: max, sort }, ctx) => run(() => api(ctx).getMyTracks(max, sort))
+		async ({ limit: max, sort, verbose }, ctx) =>
+			run(() => api(ctx).getMyTracks(max, sort), { verbose })
 	);
 
 	server.registerTool(
@@ -576,11 +646,11 @@ export function registerTools(
 		{
 			title: "Get who I follow",
 			description: "List the users the connected user follows.",
-			inputSchema: z.object({ limit }),
+			inputSchema: z.object({ limit, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get who I follow", ...READ },
 		},
-		async ({ limit: max }, ctx) => run(() => api(ctx).getMyFollowings(max))
+		async ({ limit: max, verbose }, ctx) => run(() => api(ctx).getMyFollowings(max), { verbose })
 	);
 
 	server.registerTool(
@@ -588,11 +658,11 @@ export function registerTools(
 		{
 			title: "Get my followers",
 			description: "List the users who follow the connected user.",
-			inputSchema: z.object({ limit }),
+			inputSchema: z.object({ limit, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my followers", ...READ },
 		},
-		async ({ limit: max }, ctx) => run(() => api(ctx).getMyFollowers(max))
+		async ({ limit: max, verbose }, ctx) => run(() => api(ctx).getMyFollowers(max), { verbose })
 	);
 
 	server.registerTool(
@@ -615,11 +685,16 @@ export function registerTools(
 			title: "Get my feed",
 			description:
 				"List recent activity from people the connected user follows: tracks by default, or all for playlists too.",
-			inputSchema: z.object({ limit, kind: z.enum(["tracks", "all"]).default("tracks") }),
+			inputSchema: z.object({
+				limit,
+				kind: z.enum(["tracks", "all"]).default("tracks"),
+				verbose,
+			}),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get my feed", ...READ },
 		},
-		async ({ limit: max, kind }, ctx) => run(() => api(ctx).getFeed(max, kind))
+		async ({ limit: max, kind, verbose }, ctx) =>
+			run(() => api(ctx).getFeed(max, kind), { verbose })
 	);
 
 	server.registerTool(
@@ -627,11 +702,11 @@ export function registerTools(
 		{
 			title: "Get recently played",
 			description: "Tracks the connected user played recently, most recent first.",
-			inputSchema: z.object({ limit }),
+			inputSchema: z.object({ limit, verbose }),
 			outputSchema: PAGE_OUT,
 			annotations: { title: "Get recently played", ...READ },
 		},
-		async ({ limit: max }, ctx) => run(() => api(ctx).getRecentlyPlayed(max))
+		async ({ limit: max, verbose }, ctx) => run(() => api(ctx).getRecentlyPlayed(max), { verbose })
 	);
 
 	if (writes) registerWriteTools(server, api);
@@ -801,11 +876,12 @@ function registerWriteTools(server: McpServer, api: Api): void {
 				trackId: id,
 				body: z.string().min(1),
 				timestamp: z.number().int().min(0).optional().describe("Milliseconds into the track"),
+				verbose,
 			}),
 			annotations: { title: "Add comment", ...WRITE },
 		},
-		async ({ trackId, body, timestamp }, ctx) =>
-			run(() => api(ctx).addComment(trackId, body, timestamp))
+		async ({ trackId, body, timestamp, verbose }, ctx) =>
+			run(() => api(ctx).addComment(trackId, body, timestamp), { verbose })
 	);
 
 	// --- Playlist writes ---
@@ -819,10 +895,11 @@ function registerWriteTools(server: McpServer, api: Api): void {
 				description: z.string().optional(),
 				sharing: z.enum(["public", "private"]).default("private"),
 				trackIds: z.array(id).optional(),
+				verbose,
 			}),
 			annotations: { title: "Create playlist", ...WRITE },
 		},
-		async ({ title, description, sharing, trackIds }, ctx) =>
+		async ({ title, description, sharing, trackIds, verbose }, ctx) =>
 			run(
 				() =>
 					api(ctx).createPlaylist({
@@ -831,7 +908,7 @@ function registerWriteTools(server: McpServer, api: Api): void {
 						...(description !== undefined ? { description } : {}),
 						...(trackIds ? { trackIds } : {}),
 					}),
-				playlistLinks
+				{ links: playlistLinks, verbose }
 			)
 	);
 
@@ -847,11 +924,12 @@ function registerWriteTools(server: McpServer, api: Api): void {
 				description: z.string().optional(),
 				sharing: z.enum(["public", "private"]).optional(),
 				trackIds: z.array(id).optional().describe("Replaces the tracklist entirely, in this order"),
+				verbose,
 			}),
 			annotations: { title: "Update playlist", ...DESTRUCTIVE },
 		},
-		async ({ playlistId, ...updates }, ctx) =>
-			run(() => api(ctx).updatePlaylist(playlistId, updates), playlistLinks)
+		async ({ playlistId, verbose, ...updates }, ctx) =>
+			run(() => api(ctx).updatePlaylist(playlistId, updates), { links: playlistLinks, verbose })
 	);
 
 	server.registerTool(
@@ -859,11 +937,14 @@ function registerWriteTools(server: McpServer, api: Api): void {
 		{
 			title: "Add tracks to playlist",
 			description: "Append tracks to an existing playlist.",
-			inputSchema: z.object({ playlistId: id, trackIds: z.array(id).min(1) }),
+			inputSchema: z.object({ playlistId: id, trackIds: z.array(id).min(1), verbose }),
 			annotations: { title: "Add tracks to playlist", ...WRITE },
 		},
-		async ({ playlistId, trackIds }, ctx) =>
-			run(() => api(ctx).addTracksToPlaylist(playlistId, trackIds), playlistLinks)
+		async ({ playlistId, trackIds, verbose }, ctx) =>
+			run(() => api(ctx).addTracksToPlaylist(playlistId, trackIds), {
+				links: playlistLinks,
+				verbose,
+			})
 	);
 
 	server.registerTool(
@@ -871,11 +952,14 @@ function registerWriteTools(server: McpServer, api: Api): void {
 		{
 			title: "Remove track from playlist",
 			description: "Remove one track from a playlist.",
-			inputSchema: z.object({ playlistId: id, trackId: id }),
+			inputSchema: z.object({ playlistId: id, trackId: id, verbose }),
 			annotations: { title: "Remove track from playlist", ...DESTRUCTIVE },
 		},
-		async ({ playlistId, trackId }, ctx) =>
-			run(() => api(ctx).removeTrackFromPlaylist(playlistId, trackId), playlistLinks)
+		async ({ playlistId, trackId, verbose }, ctx) =>
+			run(() => api(ctx).removeTrackFromPlaylist(playlistId, trackId), {
+				links: playlistLinks,
+				verbose,
+			})
 	);
 
 	server.registerTool(
@@ -894,8 +978,9 @@ function registerWriteTools(server: McpServer, api: Api): void {
 	);
 }
 
-// A JSON resource body. Templates are not listable — there is no endpoint that
-// enumerates every track — so `list` is undefined and clients read them by URI.
+// A JSON resource body with every field SoundCloud sends. Templates are not
+// listable — there is no endpoint that enumerates every track — so `list` is
+// undefined and clients read them by URI.
 async function json(uri: URL, load: () => Promise<unknown>) {
 	try {
 		const text = JSON.stringify(await load());
@@ -964,6 +1049,7 @@ function registerResources(server: McpServer, api: Api): void {
 	);
 }
 
+// Prompts embed compact JSON: a page of full tracks would crowd out the request.
 function userPrompt(text: string) {
 	return { messages: [{ role: "user" as const, content: { type: "text" as const, text } }] };
 }
@@ -978,7 +1064,7 @@ function registerPrompts(server: McpServer, api: Api): void {
 		async (ctx) => {
 			const likes = await orThrow(() => api(ctx).getMyLikes(50));
 			return userPrompt(
-				`Analyze my liked tracks:\n\n${JSON.stringify(likes)}\n\nIdentify favorite genres, artists, and production styles.`
+				`Analyze my liked tracks:\n\n${JSON.stringify(compact(likes))}\n\nIdentify favorite genres, artists, and production styles.`
 			);
 		}
 	);
@@ -995,7 +1081,7 @@ function registerPrompts(server: McpServer, api: Api): void {
 				Promise.all([api(ctx).getTrack(trackId), api(ctx).getRelatedTracks(trackId, 20)])
 			);
 			return userPrompt(
-				`A track I like:\n\n${JSON.stringify(track)}\n\nRelated tracks:\n\n${JSON.stringify(related)}\n\nExplain what they share and recommend three.`
+				`A track I like:\n\n${JSON.stringify(compact(track))}\n\nRelated tracks:\n\n${JSON.stringify(compact(related))}\n\nExplain what they share and recommend three.`
 			);
 		}
 	);
@@ -1016,9 +1102,11 @@ function registerPrompts(server: McpServer, api: Api): void {
 				])
 			);
 			const want = `${genres ? ` in these genres: ${genres}` : ""}${mood ? ` with a ${mood} mood` : ""}`;
-			const results = search ? `\n\nSearch results for "${seed}":\n${JSON.stringify(search)}` : "";
+			const results = search
+				? `\n\nSearch results for "${seed}":\n${JSON.stringify(compact(search))}`
+				: "";
 			return userPrompt(
-				`Recommend new music${want}.\n\nMy likes:\n${JSON.stringify(likes)}${results}\n\nSuggest tracks, artists, or genres and explain why.`
+				`Recommend new music${want}.\n\nMy likes:\n${JSON.stringify(compact(likes))}${results}\n\nSuggest tracks, artists, or genres and explain why.`
 			);
 		}
 	);

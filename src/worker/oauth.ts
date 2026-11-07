@@ -4,7 +4,7 @@
 
 import { z } from "zod";
 import { AUTH_BASE } from "../client.js";
-import type { OAuthTokenResponse } from "../types.js";
+import { type OAuthTokenResponse, OAuthTokenResponseSchema } from "../types.js";
 
 /**
  * Context captured at authorization time, encrypted into the OAuth grant and
@@ -72,10 +72,11 @@ async function tokenRequest(body: Record<string, string>): Promise<OAuthTokenRes
 		},
 		body: new URLSearchParams(body).toString(),
 	});
-	if (!response.ok) {
+	const token = response.ok && OAuthTokenResponseSchema.safeParse(await response.json()).data;
+	if (!token) {
 		throw new Error("SoundCloud token request failed. Check app credentials or reconnect.");
 	}
-	return (await response.json()) as OAuthTokenResponse;
+	return token;
 }
 
 function normalize(token: OAuthTokenResponse, previousRefresh?: string): Tokens {
