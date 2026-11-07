@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-07 — 1.1.2
+
+- The 20-second deadline and tool-call cancellation now also cover waiting for
+  an access token or a token refresh, so a stalled refresh no longer hangs the
+  call. A refresh that finishes after the call gave up still saves the new
+  single-use refresh token.
+
 ## 2026-11-07 — 1.1.1
 
 - Each SoundCloud API call now gives up after 20 seconds with a short "did not
