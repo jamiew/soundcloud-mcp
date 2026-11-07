@@ -1,5 +1,7 @@
 # Changelog
 
+## 2026-11-07 — 1.1.0
+
 - Moved both servers to MCP SDK v2 (`@modelcontextprotocol/server` 2.4) and
   `agents` 0.33. They now serve the 2026-07-28 protocol alongside 2025-era
   clients, which keep working unchanged. The v1 `@modelcontextprotocol/sdk` is
