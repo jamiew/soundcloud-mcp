@@ -16,6 +16,8 @@ import { clearTokens, isExpired, loadTokens, type StoredToken, saveTokens } from
 /** Tools return this message as is, so keep it short and actionable. */
 export class OAuthError extends SoundCloudAuthError {}
 
+const MISSING_CREDENTIALS = "Set SOUNDCLOUD_CLIENT_ID and SOUNDCLOUD_CLIENT_SECRET in .env first.";
+
 interface PKCEChallenge {
 	codeVerifier: string;
 	codeChallenge: string;
@@ -45,6 +47,7 @@ async function tokenRequest(
 	body: URLSearchParams,
 	extraHeaders: Record<string, string> = {}
 ): Promise<OAuthTokenResponse> {
+	if (!CLIENT_ID || !CLIENT_SECRET) throw new OAuthError(MISSING_CREDENTIALS);
 	const response = await fetch(`${AUTH_BASE}/oauth/token`, {
 		method: "POST",
 		headers: {
@@ -220,9 +223,7 @@ export function loginWithBrowser(
 	const { openBrowser: shouldOpen = true, timeoutMs = 300_000 } = options;
 
 	if (!CLIENT_ID || !CLIENT_SECRET) {
-		return Promise.reject(
-			new OAuthError("Set SOUNDCLOUD_CLIENT_ID and SOUNDCLOUD_CLIENT_SECRET in .env first.")
-		);
+		return Promise.reject(new OAuthError(MISSING_CREDENTIALS));
 	}
 
 	const pkce = generatePKCEChallenge();

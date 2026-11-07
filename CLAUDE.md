@@ -67,6 +67,8 @@ Never read `.env` directly. `pnpm start` and `pnpm run auth` load it through
 use them through the server, not by inspecting credentials.
 
 - Run `pnpm check` before finishing: lint, Markdown lint, both typechecks, tests.
+- `.mcp.json` is the headless dev entry; `src/mcpJson.test.ts` builds the server
+  and launches it over stdio in both protocol eras.
 - Run `pnpm verify` for live stdio checks. It builds the server, exercises read
   tools, resources and templates, and creates, reads, then deletes a temporary
   playlist. It does not cover every tool.

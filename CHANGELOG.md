@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- The local server starts without SoundCloud credentials, so clients can list
+  its tools. Calls that need them say which variables to set.
+- `src/mcpJson.test.ts` builds the server and launches `.mcp.json` over stdio
+  in both protocol eras.
+
 ## 2026-11-07 — 1.1.0
 
 - Moved both servers to MCP SDK v2 (`@modelcontextprotocol/server` 2.4) and
