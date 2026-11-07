@@ -1,9 +1,7 @@
-import { readFileSync } from "node:fs";
 import { Client } from "@modelcontextprotocol/client";
 import { InMemoryTransport, McpServer } from "@modelcontextprotocol/server";
 import { describe, expect, it } from "vitest";
 import { SoundCloudClient } from "./client.js";
-import { serverInfo } from "./server.js";
 import { registerAuthTools } from "./stdio/authTools.js";
 import { registerTools } from "./tools.js";
 
@@ -89,12 +87,5 @@ describe("resource and prompt errors", () => {
 		expect(error).toBeInstanceOf(Error);
 		expect(error.message).not.toContain("upstream page");
 		await client.close();
-	});
-});
-
-describe("serverInfo", () => {
-	it("reports the package version", () => {
-		const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-		expect(serverInfo("test").version).toBe(pkg.version);
 	});
 });

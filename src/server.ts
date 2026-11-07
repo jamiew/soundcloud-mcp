@@ -1,14 +1,12 @@
 // Shared identity; each transport supplies its own auth instructions.
 
+import pkg from "../package.json" with { type: "json" };
 import { INLINE_ICON } from "./icon.js";
-
-// Keep in sync with package.json; a test checks it.
-const VERSION = "1.1.0";
 
 export function serverInfo(name: string, icons = [INLINE_ICON]) {
 	return {
 		name,
-		version: VERSION,
+		version: pkg.version,
 		title: "SoundCloud",
 		description:
 			"Search SoundCloud, read your library, and manage playlists, follows, likes and reposts.",
