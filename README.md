@@ -207,7 +207,8 @@ Shared API and MCP code lives in `src/{client,tools,types,server,icon}.ts`.
 See [CLAUDE.md](CLAUDE.md) for safety and verification rules and
 [GitHub issues](https://github.com/jamiew/soundcloud-mcp/issues) for open work.
 Use the `soundcloud-api-sync` skill before adding endpoints or checking upstream
-changes. It records the synced-through date; issue #2 holds the coverage gaps.
+changes. [Issue #2](https://github.com/jamiew/soundcloud-mcp/issues/2) records the
+November 18, 2026 audit and deferred API coverage.
 The standalone audit is:
 
 ```bash
