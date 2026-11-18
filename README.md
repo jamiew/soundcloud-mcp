@@ -207,11 +207,8 @@ Shared API and MCP code lives in `src/{client,tools,types,server,icon}.ts`.
 See [CLAUDE.md](CLAUDE.md) for safety and verification rules and
 [GitHub issues](https://github.com/jamiew/soundcloud-mcp/issues) for open work.
 Use the `soundcloud-api-sync` skill before adding endpoints or checking upstream
-changes. The latest audit was November 18, 2026: 55 of 68 spec operations are
-covered, with no releases since October 28. Stations and token revocation are
-implemented. The remaining operations are deprecated, overlap existing tools,
-or concern uploads and track management, which are deferred. See
-[#2](https://github.com/jamiew/soundcloud-mcp/issues/2) for the remaining scope.
+changes. [Issue #2](https://github.com/jamiew/soundcloud-mcp/issues/2) records the
+November 18, 2026 audit and deferred API coverage.
 The standalone audit is:
 
 ```bash
