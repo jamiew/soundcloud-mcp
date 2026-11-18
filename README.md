@@ -212,7 +212,7 @@ November 18, 2026 audit and deferred API coverage.
 The standalone audit is:
 
 ```bash
-node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-11-18
+node .claude/skills/soundcloud-api-sync/audit.mjs --since 2026-10-28
 ```
 
 The [official spec](https://github.com/soundcloud/api) is authoritative. Track
