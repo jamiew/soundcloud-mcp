@@ -3,6 +3,11 @@ allowBuilds:
   core-js-pure: true
   esbuild: true
   workerd: true
+# hono 4.13.23 carries GHSA-656w-x92q-369m, GHSA-586x-c76g-h528 and
+# GHSA-mhwf-w6q6-q58w and is newer than pnpm's minimum release age. Drop this
+# entry once that age passes.
+minimumReleaseAgeExclude:
+  - hono@4.13.23
 # markdownlint-cli2 pins vulnerable versions of these. Drop each override once
 # its upstream range clears the advisory.
 overrides:
