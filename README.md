@@ -15,9 +15,27 @@ can use it from your phone.
 
 You have to deploy the worker yourself. We don't run a shared instance at this time.
 
+## Quick start with npx
+
+Requires Node 22.18+ or 24.11+. Create an app at <https://soundcloud.com/you/apps>,
+register `http://localhost:8888/callback` as its redirect URI, then add the
+published package to your MCP client:
+
+```bash
+claude mcp add soundcloud \
+  -e SOUNDCLOUD_CLIENT_ID=your-client-id \
+  -e SOUNDCLOUD_CLIENT_SECRET=your-client-secret \
+  -- npx -y @jamiew/soundcloud-mcp
+```
+
+Other clients use `npx -y @jamiew/soundcloud-mcp` with the same two variables.
+Log in with the `connect_soundcloud` tool. The package also ships
+`soundcloud-mcp-auth` for logging in from a terminal.
+
 ## Local setup
 
-Requires Node 22.18+ or 24.11+ LTS and pnpm. See `package.json` for exact versions.
+To run from a checkout instead, you also need pnpm. See `package.json` for exact
+versions.
 
 1. Create an app at <https://soundcloud.com/you/apps>. Save its client ID and
    secret. Register `http://localhost:8888/callback` as the redirect URI, or set a

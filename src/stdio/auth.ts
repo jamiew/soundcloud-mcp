@@ -8,7 +8,9 @@ import { loginWithBrowser, SIGN_OUT_MESSAGES, signOut, tokenProvider } from "./o
 
 async function main() {
 	if (!CLIENT_ID || !CLIENT_SECRET) {
-		console.error("Missing SOUNDCLOUD_CLIENT_ID or SOUNDCLOUD_CLIENT_SECRET in .env");
+		console.error(
+			"Set SOUNDCLOUD_CLIENT_ID and SOUNDCLOUD_CLIENT_SECRET in the environment or .env."
+		);
 		process.exit(1);
 	}
 

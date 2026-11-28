@@ -80,9 +80,17 @@ export interface TokenProvider {
 	refreshAccessToken(): Promise<string>;
 }
 
+/** Ids go into request paths, so allow only URN characters: no `/`, `?`, `#`, `.` or `%`. */
+function pathSegment(value: string): string {
+	if (!/^[A-Za-z0-9:_-]+$/.test(value)) {
+		throw new SoundCloudApiError(`"${value}" isn't a SoundCloud id or URN.`, 400);
+	}
+	return value;
+}
+
 /** Normalize numeric or permalink-style ids to SoundCloud URNs. */
 export function toUrn(kind: "tracks" | "users" | "playlists", idOrUrn: string | number): string {
-	const raw = String(idOrUrn).trim();
+	const raw = pathSegment(String(idOrUrn).trim());
 	if (raw.startsWith("soundcloud:")) return raw;
 	return `soundcloud:${kind}:${raw}`;
 }
@@ -306,7 +314,7 @@ export class SoundCloudClient {
 	}
 	/** Takes a `soundcloud:system-playlists:…` URN or its `track-stations:{id}` part. */
 	getSystemPlaylist(id: string) {
-		return this.read(PlaylistSchema, `/system-playlists/${id.trim()}`);
+		return this.read(PlaylistSchema, `/system-playlists/${pathSegment(id.trim())}`);
 	}
 	/** Turns a soundcloud.com permalink into a track, user, playlist or station, unchecked. */
 	resolve(url: string): Promise<unknown> {

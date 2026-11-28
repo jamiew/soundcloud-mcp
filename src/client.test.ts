@@ -61,6 +61,12 @@ describe("toUrn", () => {
 	it("passes existing URNs through untouched", () => {
 		expect(toUrn("tracks", "soundcloud:tracks:99")).toBe("soundcloud:tracks:99");
 	});
+
+	it("rejects ids that would point a request at another endpoint", () => {
+		for (const id of ["1/../../me", "1?limit=1", "1#x", "soundcloud:tracks:1/comments", "%2e%2e"]) {
+			expect(() => toUrn("tracks", id)).toThrow("isn't a SoundCloud id or URN");
+		}
+	});
 });
 
 describe("SoundCloudClient", () => {

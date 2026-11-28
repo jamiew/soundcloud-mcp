@@ -21,6 +21,12 @@ types differ. `pnpm typecheck` runs both. Keep worker paths excluded from
 Relative imports need `.js` extensions for NodeNext; Wrangler resolves them to TS.
 Keep global `fetch` bound to `globalThis` for Workers.
 
+npm publishes only `build/` as `@jamiew/soundcloud-mcp`, so Worker-only packages
+stay in `devDependencies` (Wrangler bundles them at deploy). To release, bump
+`version`, add a CHANGELOG entry, push, and publish a GitHub release tagged
+`vX.Y.Z`. `.github/workflows/publish.yml` publishes to npm through trusted
+publishing, then lists `server.json` in the MCP Registry with the tag's version.
+
 ## API rules
 
 Use sources in this order: the

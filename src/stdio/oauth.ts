@@ -16,7 +16,8 @@ import { clearTokens, isExpired, loadTokens, type StoredToken, saveTokens } from
 /** Tools return this message as is, so keep it short and actionable. */
 export class OAuthError extends SoundCloudAuthError {}
 
-const MISSING_CREDENTIALS = "Set SOUNDCLOUD_CLIENT_ID and SOUNDCLOUD_CLIENT_SECRET in .env first.";
+const MISSING_CREDENTIALS =
+	"Set SOUNDCLOUD_CLIENT_ID and SOUNDCLOUD_CLIENT_SECRET in this server's environment first.";
 
 interface PKCEChallenge {
 	codeVerifier: string;
@@ -138,14 +139,14 @@ export const SIGN_OUT_MESSAGES: Record<SignOutResult, string> = {
 export async function getValidAccessToken(): Promise<string> {
 	const tokens = loadTokens();
 	if (!tokens) {
-		throw new OAuthError("Log in with `pnpm run auth` or the connect_soundcloud tool.");
+		throw new OAuthError("Log in with the connect_soundcloud tool or `soundcloud-mcp-auth`.");
 	}
 	if (tokens.access_token && !isExpired(tokens)) {
 		return tokens.access_token;
 	}
 	if (!tokens.refresh_token) {
 		throw new OAuthError(
-			"Token expired and cannot be refreshed. Use connect_soundcloud or run `pnpm run auth`."
+			"Token expired and cannot be refreshed. Use connect_soundcloud or run `soundcloud-mcp-auth`."
 		);
 	}
 	debug("Access token expired; refreshing");
@@ -202,14 +203,15 @@ export const tokenProvider: TokenProvider = {
 };
 
 function openBrowser(url: string): void {
-	const cmd =
-		process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
+	// rundll32 opens the URL without cmd.exe, which would split it at `&`.
+	const [cmd, args]: [string, string[]] =
+		process.platform === "darwin"
+			? ["open", [url]]
+			: process.platform === "win32"
+				? ["rundll32", ["url.dll,FileProtocolHandler", url]]
+				: ["xdg-open", [url]];
 	try {
-		spawn(cmd, [url], {
-			stdio: "ignore",
-			detached: true,
-			shell: process.platform === "win32",
-		}).unref();
+		spawn(cmd, args, { stdio: "ignore", detached: true }).unref();
 	} catch (error) {
 		debug("Could not open browser automatically:", error);
 	}
@@ -288,7 +290,8 @@ export function loginWithBrowser(
 			timeoutMs
 		);
 
-		server.listen(port, () => {
+		// Listen only on the redirect URI's host (normally localhost), not the whole network.
+		server.listen(port, redirect.hostname.replace(/^\[|\]$/g, ""), () => {
 			logError(`Waiting for SoundCloud OAuth callback on ${REDIRECT_URI}`);
 			logError(`Authorize URL:\n${authUrl}\n`);
 			if (shouldOpen) openBrowser(authUrl);

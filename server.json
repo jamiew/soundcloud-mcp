@@ -1,0 +1,43 @@
+{
+	"$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+	"name": "io.github.jamiew/soundcloud-mcp",
+	"title": "SoundCloud (unofficial)",
+	"description": "Search SoundCloud, read your library, and manage playlists, follows, likes and reposts",
+	"repository": {
+		"url": "https://github.com/jamiew/soundcloud-mcp",
+		"source": "github"
+	},
+	"version": "1.2.0",
+	"packages": [
+		{
+			"registryType": "npm",
+			"registryBaseUrl": "https://registry.npmjs.org",
+			"identifier": "@jamiew/soundcloud-mcp",
+			"version": "1.2.0",
+			"runtimeHint": "npx",
+			"transport": {
+				"type": "stdio"
+			},
+			"environmentVariables": [
+				{
+					"name": "SOUNDCLOUD_CLIENT_ID",
+					"description": "Client ID of your app from soundcloud.com/you/apps",
+					"isRequired": true,
+					"isSecret": true
+				},
+				{
+					"name": "SOUNDCLOUD_CLIENT_SECRET",
+					"description": "Client secret of your app from soundcloud.com/you/apps",
+					"isRequired": true,
+					"isSecret": true
+				},
+				{
+					"name": "SOUNDCLOUD_REDIRECT_URI",
+					"description": "OAuth redirect URI registered on your app",
+					"isRequired": false,
+					"default": "http://localhost:8888/callback"
+				}
+			]
+		}
+	]
+}

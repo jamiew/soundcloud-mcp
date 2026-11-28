@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-27 — 1.2.0
+
+- Published to npm as `@jamiew/soundcloud-mcp` (`npx -y @jamiew/soundcloud-mcp`)
+  and listed in the MCP Registry as `io.github.jamiew/soundcloud-mcp`. GitHub
+  releases publish both from `.github/workflows/publish.yml`.
+- The package ships only the stdio build. Worker-only dependencies moved to
+  `devDependencies`, so `npx` doesn't install them.
+- The local login callback listens only on the redirect URI's host instead of
+  every network interface. The token folder is created private (`700`) and the
+  token file is replaced atomically.
+- Ids that contain `/`, `?`, `#`, `.` or `%` are refused before any request, so
+  a crafted id can't point a call at a different SoundCloud endpoint.
+- Windows opens the login page without `cmd.exe`, which split the URL at `&`.
+
 ## 2026-11-07 — 1.1.2
 
 - The 20-second deadline and tool-call cancellation now also cover waiting for

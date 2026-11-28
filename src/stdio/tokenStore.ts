@@ -22,9 +22,12 @@ export function loadTokens(): StoredToken | null {
 
 export function saveTokens(token: OAuthTokenResponse): StoredToken {
 	const stored: StoredToken = { ...token, obtained_at: Math.floor(Date.now() / 1000) };
-	fs.mkdirSync(path.dirname(TOKEN_FILE), { recursive: true });
-	fs.writeFileSync(TOKEN_FILE, JSON.stringify(stored, null, 2), { mode: 0o600 });
-	fs.chmodSync(TOKEN_FILE, 0o600);
+	fs.mkdirSync(path.dirname(TOKEN_FILE), { recursive: true, mode: 0o700 });
+	// Refresh tokens are single-use, so a half-written file would end the login.
+	const tmp = `${TOKEN_FILE}.${process.pid}.tmp`;
+	fs.writeFileSync(tmp, JSON.stringify(stored, null, 2), { mode: 0o600 });
+	fs.chmodSync(tmp, 0o600);
+	fs.renameSync(tmp, TOKEN_FILE);
 	return stored;
 }
 

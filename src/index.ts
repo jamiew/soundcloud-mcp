@@ -12,7 +12,7 @@ import { registerTools } from "./tools.js";
 // Start anyway so clients can list tools; calls that need credentials say what's missing.
 if (!CLIENT_ID || !CLIENT_SECRET) {
 	logError(
-		"Missing SOUNDCLOUD_CLIENT_ID or SOUNDCLOUD_CLIENT_SECRET. Copy .env.example to .env and fill them in."
+		"Missing SOUNDCLOUD_CLIENT_ID or SOUNDCLOUD_CLIENT_SECRET. Set them in this server's environment (or .env in a checkout)."
 	);
 }
 
